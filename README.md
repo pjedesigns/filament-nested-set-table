@@ -12,7 +12,10 @@ A Filament 4 table component for displaying and managing nested set data structu
 - **Preserves Standard Filament Tables**: Uses standard Filament table rows with columns, filters, and actions
 - **Drag-and-Drop Reordering**: Intuitive touch-friendly drag-and-drop with visual drop zones
 - **Nested Set Integration**: Works seamlessly with `kalnoy/nestedset` package
-- **Expand/Collapse**: Toggle visibility of child nodes
+- **Expand/Collapse**: Toggle visibility of child nodes with session persistence
+- **Lazy Loading**: Only loads visible nodes for better performance with large trees
+- **Eager Loading Support**: Configure relationships to eager load with tree queries
+- **Smart Pagination**: Pagination counts root nodes only, children are loaded on expand
 - **Scoped Trees**: Supports scoped nested sets (e.g., navigation items by navigation_id)
 - **Authorization**: Integrates with model policies for move permission checks
 - **Undo Support**: Temporary undo button for accidental moves
@@ -82,6 +85,7 @@ class Category extends Model
 namespace App\Filament\Resources\CategoryResource\Pages;
 
 use App\Filament\Resources\CategoryResource;
+use Filament\Actions\Action;
 use Filament\Resources\Pages\ListRecords;
 use Pjedesigns\FilamentNestedSetTable\Concerns\HasTree;
 
@@ -91,7 +95,29 @@ class ListCategories extends ListRecords
 
     protected static string $resource = CategoryResource::class;
 
-    // The trait automatically modifies the table query for tree display
+    // Optional: Configure eager loading for relationships
+    protected function getTreeWith(): array
+    {
+        return ['media', 'author'];
+    }
+
+    // Optional: Add expand/collapse all actions
+    protected function getHeaderActions(): array
+    {
+        return [
+            Action::make('expandAll')
+                ->label(__('Expand All'))
+                ->icon('heroicon-o-chevron-double-down')
+                ->color('gray')
+                ->action(fn () => $this->expandAllNodes()),
+            Action::make('collapseAll')
+                ->label(__('Collapse All'))
+                ->icon('heroicon-o-chevron-double-up')
+                ->color('gray')
+                ->action(fn () => $this->collapseAllNodes()),
+            // ... other actions
+        ];
+    }
 }
 ```
 
@@ -111,7 +137,7 @@ class CategoryResource extends Resource
     public static function table(Table $table): Table
     {
         return $table
-            ->modifyQueryUsing(fn ($query) => $query->withDepth()->withCount('children'))
+            ->recordUrl(null) // Recommended: disable row click for drag-and-drop
             ->defaultSort('_lft', 'asc')
             ->columns([
                 TreeColumn::make('title')
@@ -127,6 +153,8 @@ class CategoryResource extends Resource
     }
 }
 ```
+
+**Note:** The `HasTree` trait automatically handles query modifications (`withDepth`, `withCount('children')`, lazy loading). Do not add `modifyQueryUsing` for these - use `getTreeWith()` for eager loading relationships instead.
 
 ### 4. Authorization (Optional)
 
@@ -167,7 +195,8 @@ return [
     // Remember expanded/collapsed state in session
     'remember_expanded_state' => true,
 
-    // Expand all nodes by default
+    // Expand all nodes by default on first visit
+    // Note: If user collapses nodes, their preference is remembered
     'default_expanded' => true,
 
     // Undo duration in seconds
@@ -194,6 +223,39 @@ TreeColumn::make('title')
     ->searchable()              // Make searchable (inherited)
     ->sortable();               // Make sortable (inherited)
 ```
+
+## HasTree Trait Methods
+
+The `HasTree` trait provides several useful methods:
+
+```php
+// Expand/Collapse
+$this->expandAllNodes();        // Expand all nodes
+$this->collapseAllNodes();      // Collapse all nodes
+$this->toggleNode($nodeId);     // Toggle a specific node
+$this->isNodeExpanded($nodeId); // Check if node is expanded
+
+// State management
+$this->resetTreeState();        // Reset to default state
+$this->clearExpandedState();    // Clear session state
+
+// Configuration
+$this->getTreeWith();           // Override to specify eager loading
+$this->getMaxDepth();           // Get max depth setting
+```
+
+## Eager Loading Relationships
+
+To eager load relationships with tree queries, override the `getTreeWith()` method in your ListRecords page:
+
+```php
+protected function getTreeWith(): array
+{
+    return ['media', 'author', 'tags'];
+}
+```
+
+This ensures relationships are loaded efficiently when fetching tree nodes, preventing N+1 query issues.
 
 ## Scoped Trees
 

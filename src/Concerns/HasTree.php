@@ -6,8 +6,13 @@ use Filament\Notifications\Notification;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Contracts\Pagination\CursorPaginator;
+use Illuminate\Contracts\Pagination\Paginator;
+use Illuminate\Pagination\LengthAwarePaginator;
+use Illuminate\Support\Collection;
 use Livewire\Attributes\Computed;
 use Livewire\Attributes\On;
+use Livewire\Attributes\Renderless;
 use Pjedesigns\FilamentNestedSetTable\Events\NodeMoved;
 use Pjedesigns\FilamentNestedSetTable\Events\NodeMoveFailed;
 use Pjedesigns\FilamentNestedSetTable\Services\MoveResult;
@@ -25,27 +30,190 @@ trait HasTree
 
     protected static bool $rememberExpandedState = true;
 
-    protected static bool $defaultExpanded = true;
+    protected static bool $defaultExpanded = false;
+
+    /**
+     * Relationships to eager load with tree queries.
+     * Override getTreeWith() method to customize.
+     */
+    protected array $treeWith = [];
 
     public function bootHasTree(): void
     {
         static::$maxDepth = config('filament-nested-set-table.max_depth', 0);
         static::$rememberExpandedState = config('filament-nested-set-table.remember_expanded_state', true);
-        static::$defaultExpanded = config('filament-nested-set-table.default_expanded', true);
+        static::$defaultExpanded = config('filament-nested-set-table.default_expanded', false);
 
-        if (static::$rememberExpandedState) {
-            $this->expandedNodes = session()->get($this->getExpandedStateKey(), []);
-        }
+        // Note: We don't load from session here anymore.
+        // Session loading happens in mountHasTree() which only runs on initial page load.
+        // This boot method runs on every Livewire request, so we should not override
+        // the Livewire-managed state.
+    }
 
-        // If default expanded and no saved state, expand all
-        if (static::$defaultExpanded && empty($this->expandedNodes)) {
+    /**
+     * Reset tree to default state (clear session and collapse/expand based on config).
+     * Useful as a header action to let users reset the tree view.
+     */
+    public function resetTreeState(): void
+    {
+        $this->clearExpandedState();
+
+        if (static::$defaultExpanded) {
             $this->expandAllNodes();
         }
+    }
+
+    /**
+     * Clear the saved expanded state from session.
+     * Useful for resetting to default state.
+     */
+    public function clearExpandedState(): void
+    {
+        $this->expandedNodes = [];
+        session()->forget($this->getExpandedStateKey());
     }
 
     public function mountHasTree(): void
     {
         $this->bootHasTree();
+
+        $hasSessionState = false;
+
+        // Load saved expanded state from session on initial mount only
+        if (static::$rememberExpandedState) {
+            $savedState = session()->get($this->getExpandedStateKey());
+            // Check if session has ANY value (including empty array)
+            // This distinguishes between "never visited" (null) and "explicitly collapsed" ([])
+            if ($savedState !== null) {
+                $this->expandedNodes = $savedState;
+                $hasSessionState = true;
+            }
+        }
+
+        // Only expand all by default if:
+        // 1. defaultExpanded is true
+        // 2. There's NO saved session state (first visit)
+        if (static::$defaultExpanded && ! $hasSessionState) {
+            $this->expandAllNodes();
+        }
+    }
+
+    /**
+     * Override the table query to apply tree modifications.
+     * This method is automatically called by Filament's ListRecords.
+     */
+    protected function getTableQuery(): ?Builder
+    {
+        $query = parent::getTableQuery();
+
+        if ($query && $this->treeMode) {
+            return $this->applyTreeQueryModifications($query);
+        }
+
+        return $query;
+    }
+
+    /**
+     * Override pagination to properly handle tree structure.
+     * Pagination counts root nodes only, but all visible children are included.
+     */
+    protected function paginateTableQuery(Builder $query): Paginator | CursorPaginator
+    {
+        if (! $this->treeMode) {
+            return parent::paginateTableQuery($query);
+        }
+
+        $perPage = $this->getTableRecordsPerPage();
+
+        // If pagination is disabled, use parent method
+        if ($perPage === 'all') {
+            return parent::paginateTableQuery($query);
+        }
+
+        $model = $this->getModel();
+        $page = $this->getTablePage();
+
+        // Count only root nodes for pagination
+        $totalRootNodes = $model::query()->whereNull('parent_id')->count();
+
+        // Get paginated root node IDs
+        $rootNodeIds = $model::query()
+            ->whereNull('parent_id')
+            ->defaultOrder()
+            ->skip(($page - 1) * $perPage)
+            ->take($perPage)
+            ->pluck('id')
+            ->toArray();
+
+        // Build collection: root nodes + their visible children
+        $records = collect();
+
+        if (! empty($rootNodeIds)) {
+            // Get root nodes with depth, children count, and eager loaded relations
+            $rootNodesQuery = $model::query()
+                ->whereIn('id', $rootNodeIds)
+                ->withDepth()
+                ->withCount('children')
+                ->defaultOrder();
+
+            // Apply eager loading if configured
+            $eagerLoad = $this->getTreeWith();
+            if (! empty($eagerLoad)) {
+                $rootNodesQuery->with($eagerLoad);
+            }
+
+            $rootNodes = $rootNodesQuery->get();
+
+            // For each root node, add it and its visible descendants
+            foreach ($rootNodes as $rootNode) {
+                $records->push($rootNode);
+                $this->addVisibleDescendantsToCollection($records, $rootNode, $model);
+            }
+        }
+
+        // Create a custom paginator with root node count
+        return new LengthAwarePaginator(
+            $records,
+            $totalRootNodes,
+            $perPage,
+            $page,
+            [
+                'path' => request()->url(),
+                'pageName' => $this->getTablePaginationPageName(),
+            ]
+        );
+    }
+
+    /**
+     * Recursively add visible descendants of a node to the collection.
+     * A descendant is visible if all its ancestors are expanded.
+     */
+    protected function addVisibleDescendantsToCollection(Collection $records, Model $node, string $model): void
+    {
+        // Only add children if this node is expanded
+        if (! in_array($node->getKey(), $this->expandedNodes)) {
+            return;
+        }
+
+        $childrenQuery = $model::query()
+            ->where('parent_id', $node->getKey())
+            ->withDepth()
+            ->withCount('children')
+            ->defaultOrder();
+
+        // Apply eager loading if configured
+        $eagerLoad = $this->getTreeWith();
+        if (! empty($eagerLoad)) {
+            $childrenQuery->with($eagerLoad);
+        }
+
+        $children = $childrenQuery->get();
+
+        foreach ($children as $child) {
+            $records->push($child);
+            // Recursively add this child's visible descendants
+            $this->addVisibleDescendantsToCollection($records, $child, $model);
+        }
     }
 
     /**
@@ -55,23 +223,96 @@ trait HasTree
     public function configureTreeTable(Table $table): Table
     {
         return $table
-            ->modifyQueryUsing(fn (Builder $query) => $this->applyTreeQueryModifications($query))
             ->recordUrl(null) // Disable row click navigation in tree mode
             ->contentGrid(null);
     }
 
     /**
      * Override the table query to add tree-specific modifications.
+     * Uses lazy loading: only root nodes + children of expanded nodes are loaded.
+     * Pagination applies to root nodes only.
      */
     protected function applyTreeQueryModifications(Builder $query): Builder
     {
         $query->withDepth()->withCount('children');
 
         if ($this->treeMode) {
+            // Build a query that includes:
+            // 1. Root nodes (for pagination)
+            // 2. Children of expanded nodes (loaded on demand)
+            $query->where(function (Builder $q) {
+                // Include root nodes
+                $q->whereNull('parent_id');
+
+                // Include children of expanded nodes
+                if (! empty($this->expandedNodes)) {
+                    $q->orWhereIn('parent_id', $this->expandedNodes);
+
+                    // Also include descendants of expanded nodes whose ancestors are all expanded
+                    // This ensures we show grandchildren when both parent and grandparent are expanded
+                    $this->addExpandedDescendants($q);
+                }
+            });
+
             $query->defaultOrder();
         }
 
         return $query;
+    }
+
+    /**
+     * Recursively add descendants of expanded nodes to the query.
+     * Only includes nodes whose entire ancestor chain is expanded.
+     */
+    protected function addExpandedDescendants(Builder $query): void
+    {
+        if (empty($this->expandedNodes)) {
+            return;
+        }
+
+        $model = $this->getModel();
+
+        // Get all node IDs that are children of expanded nodes
+        $childIds = $model::query()
+            ->whereIn('parent_id', $this->expandedNodes)
+            ->pluck('id')
+            ->toArray();
+
+        // Find which of these children are also expanded (and thus need their children loaded)
+        $expandedChildIds = array_intersect($childIds, $this->expandedNodes);
+
+        if (! empty($expandedChildIds)) {
+            // Add children of expanded children
+            $query->orWhereIn('parent_id', $expandedChildIds);
+
+            // Recursively check for more levels
+            $this->addNestedExpandedDescendants($query, $expandedChildIds, $model);
+        }
+    }
+
+    /**
+     * Recursively add deeper nested descendants.
+     */
+    protected function addNestedExpandedDescendants(Builder $query, array $parentIds, string $model, int $depth = 0): void
+    {
+        // Prevent infinite recursion
+        if ($depth > 20 || empty($parentIds)) {
+            return;
+        }
+
+        // Get children of these parents
+        $childIds = $model::query()
+            ->whereIn('parent_id', $parentIds)
+            ->pluck('id')
+            ->toArray();
+
+        // Find which are expanded
+        $expandedChildIds = array_intersect($childIds, $this->expandedNodes);
+
+        if (! empty($expandedChildIds)) {
+            $query->orWhereIn('parent_id', $expandedChildIds);
+            $this->addNestedExpandedDescendants($query, $expandedChildIds, $model, $depth + 1);
+        }
     }
 
     /**
@@ -85,18 +326,48 @@ trait HasTree
 
     /**
      * Toggle a single node's expanded state.
+     * This triggers a re-render to load/unload children via lazy loading.
      */
     public function toggleNode(int $nodeId): void
     {
-        if (in_array($nodeId, $this->expandedNodes)) {
-            $this->expandedNodes = array_values(array_diff($this->expandedNodes, [$nodeId]));
+        $wasExpanded = in_array($nodeId, $this->expandedNodes);
+
+        if ($wasExpanded) {
+            // Collapsing - also collapse all descendants
+            $this->collapseNodeAndDescendants($nodeId);
         } else {
+            // Expanding
             $this->expandedNodes[] = $nodeId;
         }
 
         if (static::$rememberExpandedState) {
             session()->put($this->getExpandedStateKey(), $this->expandedNodes);
         }
+
+        // Dispatch event for frontend to know the toggle happened
+        $this->dispatch('tree-node-toggled', nodeId: $nodeId, expanded: ! $wasExpanded);
+    }
+
+    /**
+     * Collapse a node and all its expanded descendants.
+     */
+    protected function collapseNodeAndDescendants(int $nodeId): void
+    {
+        $model = $this->getModel();
+        $node = $model::find($nodeId);
+
+        if (! $node) {
+            $this->expandedNodes = array_values(array_diff($this->expandedNodes, [$nodeId]));
+
+            return;
+        }
+
+        // Get all descendant IDs
+        $descendantIds = $node->descendants()->pluck('id')->map(fn ($id) => (int) $id)->toArray();
+
+        // Remove the node and all its descendants from expanded list
+        $toRemove = array_merge([$nodeId], $descendantIds);
+        $this->expandedNodes = array_values(array_diff($this->expandedNodes, $toRemove));
     }
 
     /**
@@ -138,15 +409,20 @@ trait HasTree
 
     /**
      * Handle a node move event from the frontend.
+     *
+     * @param  int  $nodeId  The ID of the node being moved
+     * @param  int|null  $targetNodeId  The ID of the target node
+     * @param  bool  $insertBefore  If true, insert before target; if false, insert after target (when not making child)
+     * @param  bool  $makeChild  If true, make the node a child of the target node
      */
-    #[On('tree-node-moved')]
     public function handleNodeMoved(
         int $nodeId,
-        ?int $newParentId,
-        int $newPosition
+        ?int $targetNodeId,
+        bool $insertBefore = true,
+        bool $makeChild = false
     ): void {
         $model = $this->getModel();
-        $node = $model::find($nodeId);
+        $node = $model::withDepth()->find($nodeId);
 
         if (! $node) {
             $this->notifyMoveFailed(__('filament-nested-set-table::messages.node_not_found'));
@@ -156,15 +432,55 @@ trait HasTree
 
         // Authorization check
         if (! $this->authorizeMove($node)) {
-            event(new NodeMoveFailed($node, 'Unauthorized', $newParentId, $newPosition));
+            event(new NodeMoveFailed($node, 'Unauthorized', $targetNodeId, 0));
             $this->notifyMoveFailed(__('filament-nested-set-table::messages.unauthorized'));
 
             return;
         }
 
+        // Get target node
+        $targetNode = $targetNodeId ? $model::withDepth()->find($targetNodeId) : null;
+
+        if ($targetNodeId && ! $targetNode) {
+            $this->notifyMoveFailed(__('filament-nested-set-table::messages.parent_not_found'));
+
+            return;
+        }
+
+        // Determine the new parent based on operation
+        $newParentId = $makeChild ? $targetNodeId : $targetNode?->parent_id;
+
+        // Prevent circular reference - can't make a node a child of its own descendant
+        if ($makeChild && $targetNode && $node->isAncestorOf($targetNode)) {
+            $this->notifyMoveFailed(__('filament-nested-set-table::messages.circular_reference'));
+
+            return;
+        }
+
+        // Max depth check
+        if (static::$maxDepth > 0) {
+            $targetDepth = $makeChild
+                ? (($targetNode->depth ?? 0) + 1)
+                : ($targetNode->depth ?? 0);
+
+            // Calculate the depth of the deepest descendant of the node being moved
+            $nodeSubtreeDepth = $this->getSubtreeDepth($node);
+
+            $resultingMaxDepth = $targetDepth + $nodeSubtreeDepth;
+
+            if ($resultingMaxDepth > static::$maxDepth) {
+                $this->notifyMoveFailed(__('filament-nested-set-table::messages.max_depth_exceeded', [
+                    'max' => static::$maxDepth,
+                    'resulting' => $resultingMaxDepth,
+                ]));
+
+                return;
+            }
+        }
+
         // Scope validation
         if (! $this->validateScopeMove($node, $newParentId)) {
-            event(new NodeMoveFailed($node, 'Cross-scope move', $newParentId, $newPosition));
+            event(new NodeMoveFailed($node, 'Cross-scope move', $newParentId, 0));
             $this->notifyMoveFailed(__('filament-nested-set-table::messages.cross_scope'));
 
             return;
@@ -181,19 +497,66 @@ trait HasTree
             'timestamp' => now()->timestamp,
         ];
 
-        // Perform move
-        $mover = app(TreeMover::class);
-        $result = $mover->move($node, $newParentId, $newPosition, static::$maxDepth);
+        try {
+            if ($makeChild && $targetNode) {
+                // Make node a child of target (append as last child)
+                $targetNode->appendNode($node);
 
-        if ($result->success) {
+                $result = MoveResult::success(
+                    newParentId: $targetNodeId,
+                    newPosition: $this->getNodePosition($node->fresh()),
+                    wasAutoAdjusted: false
+                );
+            } elseif ($targetNode) {
+                // Insert before or after the target node as sibling
+                if ($insertBefore) {
+                    $node->insertBeforeNode($targetNode);
+                } else {
+                    $node->insertAfterNode($targetNode);
+                }
+
+                $result = MoveResult::success(
+                    newParentId: $targetNode->parent_id,
+                    newPosition: $this->getNodePosition($node->fresh()),
+                    wasAutoAdjusted: false
+                );
+            } else {
+                // Move to root
+                $node->makeRoot();
+                $result = MoveResult::success(
+                    newParentId: null,
+                    newPosition: 0,
+                    wasAutoAdjusted: false
+                );
+            }
+
             event(new NodeMoved($node->fresh(), $result, $previousParentId, $previousPosition));
             $this->notifyMoveSuccess($result);
             $this->dispatch('tree-updated');
-        } else {
-            event(new NodeMoveFailed($node, $result->error, $newParentId, $newPosition));
+        } catch (\Exception $e) {
+            $result = MoveResult::failure($e->getMessage());
+            event(new NodeMoveFailed($node, $result->error, $newParentId, 0));
             $this->notifyMoveFailed($result->error);
             $this->lastMove = null;
         }
+    }
+
+    /**
+     * Get the depth of the deepest descendant relative to the given node.
+     * Returns 0 if the node has no children.
+     */
+    protected function getSubtreeDepth(Model $node): int
+    {
+        $descendants = $node->descendants()->withDepth()->get();
+
+        if ($descendants->isEmpty()) {
+            return 0;
+        }
+
+        $nodeDepth = $node->depth ?? 0;
+        $maxDescendantDepth = $descendants->max('depth') ?? $nodeDepth;
+
+        return $maxDescendantDepth - $nodeDepth;
     }
 
     /**
@@ -216,13 +579,57 @@ trait HasTree
             return;
         }
 
-        $mover = app(TreeMover::class);
-        $result = $mover->move($node, $this->lastMove['oldParentId'], $this->lastMove['oldPosition']);
+        try {
+            $oldParentId = $this->lastMove['oldParentId'];
+            $oldPosition = $this->lastMove['oldPosition'];
 
-        if ($result->success) {
+            if ($oldParentId === null) {
+                // Was at root level
+                $node->makeRoot();
+                // Reorder among roots
+                $roots = $model::query()
+                    ->whereNull('parent_id')
+                    ->where('id', '!=', $node->id)
+                    ->defaultOrder()
+                    ->get();
+
+                if ($oldPosition > 0 && $roots->count() >= $oldPosition) {
+                    $targetRoot = $roots->get($oldPosition - 1);
+                    if ($targetRoot) {
+                        $node->insertAfterNode($targetRoot);
+                    }
+                } elseif ($roots->isNotEmpty()) {
+                    $node->insertBeforeNode($roots->first());
+                }
+            } else {
+                // Had a parent
+                $parent = $model::find($oldParentId);
+                if ($parent) {
+                    $parent->appendNode($node);
+                    // Reorder among siblings
+                    $siblings = $parent->children()->where('id', '!=', $node->id)->defaultOrder()->get();
+                    if ($oldPosition > 0 && $siblings->count() >= $oldPosition) {
+                        $targetSibling = $siblings->get($oldPosition - 1);
+                        if ($targetSibling) {
+                            $node->insertAfterNode($targetSibling);
+                        }
+                    } elseif ($siblings->isNotEmpty()) {
+                        $node->insertBeforeNode($siblings->first());
+                    }
+                }
+            }
+
             Notification::make()
                 ->title(__('filament-nested-set-table::messages.undo_success'))
                 ->success()
+                ->send();
+
+            $this->dispatch('tree-updated');
+        } catch (\Exception $e) {
+            Notification::make()
+                ->title(__('filament-nested-set-table::messages.move_failed'))
+                ->body($e->getMessage())
+                ->danger()
                 ->send();
         }
 
@@ -383,5 +790,31 @@ trait HasTree
     public function shouldRememberExpandedState(): bool
     {
         return static::$rememberExpandedState;
+    }
+
+    /**
+     * Get the relationships to eager load with tree queries.
+     * Override this method in your ListRecords class to specify relationships.
+     *
+     * Example:
+     * protected function getTreeWith(): array
+     * {
+     *     return ['mediaCoverImages', 'author'];
+     * }
+     */
+    protected function getTreeWith(): array
+    {
+        return $this->treeWith;
+    }
+
+    /**
+     * Set the relationships to eager load with tree queries.
+     * Can be called in mount() or used via property.
+     */
+    protected function treeWith(array $relations): static
+    {
+        $this->treeWith = $relations;
+
+        return $this;
     }
 }

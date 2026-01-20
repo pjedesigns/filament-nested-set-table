@@ -47,9 +47,10 @@ return [
     |--------------------------------------------------------------------------
     |
     | Whether nodes are expanded by default when the table is first loaded.
+    | With lazy loading, setting to false improves initial page load performance.
     |
     */
-    'default_expanded' => true,
+    'default_expanded' => false,
 
     /*
     |--------------------------------------------------------------------------

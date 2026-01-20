@@ -72,7 +72,10 @@ trait InteractsWithTree
     public function getTreeScopeAttributes(): array
     {
         if (method_exists($this, 'getScopeAttributes')) {
-            return $this->getScopeAttributes();
+            $scopeAttributes = $this->getScopeAttributes();
+
+            // getScopeAttributes() may return null in some cases
+            return is_array($scopeAttributes) ? $scopeAttributes : [];
         }
 
         return [];

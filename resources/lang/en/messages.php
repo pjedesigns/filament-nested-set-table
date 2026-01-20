@@ -10,6 +10,7 @@ return [
     'node_not_found' => 'The item could not be found.',
     'parent_not_found' => 'The parent item could not be found.',
     'circular_reference' => 'Cannot move an item under its own descendant.',
+    'max_depth_exceeded' => 'Cannot move here: would exceed maximum depth of :max levels.',
     'reorder_failed' => 'Failed to reorder the item.',
     'tree_fixed' => 'Tree structure has been repaired.',
     'tree_corrupted' => 'Tree structure may be corrupted. Click "Fix Tree" to repair.',
