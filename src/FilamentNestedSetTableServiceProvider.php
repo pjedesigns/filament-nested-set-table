@@ -26,7 +26,7 @@ class FilamentNestedSetTableServiceProvider extends PackageServiceProvider
 
     public function packageRegistered(): void
     {
-        $this->app->singleton(TreeMover::class, fn () => new TreeMover());
+        $this->app->singleton(TreeMover::class, fn () => new TreeMover);
     }
 
     public function packageBooted(): void
@@ -45,11 +45,11 @@ class FilamentNestedSetTableServiceProvider extends PackageServiceProvider
         return [
             AlpineComponent::make(
                 'filament-nested-set-table',
-                __DIR__ . '/../resources/dist/filament-nested-set-table.js'
+                __DIR__.'/../resources/dist/filament-nested-set-table.js'
             ),
             Css::make(
                 'filament-nested-set-table-styles',
-                __DIR__ . '/../resources/dist/filament-nested-set-table.css'
+                __DIR__.'/../resources/dist/filament-nested-set-table.css'
             ),
         ];
     }

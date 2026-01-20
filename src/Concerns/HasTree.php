@@ -333,7 +333,7 @@ trait HasTree
      */
     protected function getExpandedStateKey(): string
     {
-        return 'filament-tree-expanded.' . $this->getModel();
+        return 'filament-tree-expanded.'.$this->getModel();
     }
 
     /**
