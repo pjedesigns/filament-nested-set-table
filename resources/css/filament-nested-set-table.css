@@ -1,0 +1,142 @@
+/* Tree Column Styles */
+.fi-ta-tree-column {
+    @apply flex items-center gap-1;
+}
+
+.fi-ta-tree-column .tree-content {
+    @apply min-w-0 flex-1;
+}
+
+/* Drag Handle */
+.tree-drag-handle {
+    @apply flex h-6 w-6 shrink-0 cursor-grab items-center justify-center rounded text-gray-400 transition-colors;
+}
+
+.tree-drag-handle:hover {
+    @apply bg-gray-50 text-gray-500;
+}
+
+.dark .tree-drag-handle {
+    @apply text-gray-500;
+}
+
+.dark .tree-drag-handle:hover {
+    @apply bg-white/5 text-gray-400;
+}
+
+/* Expand/Collapse Toggle */
+.tree-expand-toggle {
+    @apply flex h-6 w-6 shrink-0 cursor-pointer items-center justify-center rounded text-gray-400 transition-colors;
+}
+
+.tree-expand-toggle:hover {
+    @apply bg-gray-50 text-gray-500;
+}
+
+.dark .tree-expand-toggle {
+    @apply text-gray-500;
+}
+
+.dark .tree-expand-toggle:hover {
+    @apply bg-white/5 text-gray-400;
+}
+
+/* Drag States */
+.tree-dragging {
+    @apply opacity-50;
+}
+
+.tree-ghost {
+    @apply bg-primary-50 opacity-50;
+}
+
+.dark .tree-ghost {
+    @apply bg-primary-950;
+}
+
+.tree-chosen {
+    @apply bg-gray-50;
+}
+
+.dark .tree-chosen {
+    @apply bg-white/5;
+}
+
+.tree-drag {
+    @apply shadow-lg;
+}
+
+/* Drop Zone Indicators */
+.tree-drop-above {
+    @apply relative;
+}
+
+.tree-drop-above::before {
+    content: '';
+    @apply absolute left-0 right-0 top-0 h-0.5 bg-primary-500;
+}
+
+.tree-drop-below {
+    @apply relative;
+}
+
+.tree-drop-below::after {
+    content: '';
+    @apply absolute bottom-0 left-0 right-0 h-0.5 bg-primary-500;
+}
+
+.tree-drop-child {
+    @apply bg-primary-50 ring-2 ring-inset ring-primary-500;
+}
+
+.dark .tree-drop-child {
+    @apply bg-primary-950;
+}
+
+/* Hidden rows (collapsed children) */
+tr.tree-row-hidden {
+    @apply hidden;
+}
+
+/* Table container for tree mode */
+[data-tree-table] tbody tr {
+    @apply transition-colors duration-150;
+}
+
+/* Undo Banner */
+.tree-undo-banner {
+    @apply fixed bottom-4 left-1/2 -translate-x-1/2 z-50;
+    @apply flex items-center gap-3 rounded-lg bg-gray-900 px-4 py-3 text-white shadow-lg;
+    @apply animate-in slide-in-from-bottom duration-300;
+}
+
+.dark .tree-undo-banner {
+    @apply bg-gray-800;
+}
+
+.tree-undo-banner button {
+    @apply rounded bg-white/10 px-3 py-1 text-sm font-medium transition-colors hover:bg-white/20;
+}
+
+/* Tree Mode Toggle Button */
+.tree-mode-toggle {
+    @apply inline-flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium transition-colors;
+}
+
+.tree-mode-toggle.active {
+    @apply bg-primary-50 text-primary-600;
+}
+
+.dark .tree-mode-toggle.active {
+    @apply bg-primary-950 text-primary-400;
+}
+
+/* Loading state for tree operations */
+[data-tree-table].tree-loading {
+    @apply pointer-events-none opacity-50;
+}
+
+/* Animation for expand/collapse */
+.tree-expand-toggle svg {
+    @apply transition-transform duration-150;
+}

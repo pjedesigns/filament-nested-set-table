@@ -2,11 +2,15 @@
 
 namespace Pjedesigns\FilamentNestedSetTable\Tests;
 
+use Illuminate\Foundation\Testing\RefreshDatabase;
+use Kalnoy\Nestedset\NestedSetServiceProvider;
 use Orchestra\Testbench\TestCase as Orchestra;
 use Pjedesigns\FilamentNestedSetTable\FilamentNestedSetTableServiceProvider;
 
 class TestCase extends Orchestra
 {
+    use RefreshDatabase;
+
     protected function setUp(): void
     {
         parent::setUp();
@@ -15,6 +19,7 @@ class TestCase extends Orchestra
     protected function getPackageProviders($app): array
     {
         return [
+            NestedSetServiceProvider::class,
             FilamentNestedSetTableServiceProvider::class,
         ];
     }
@@ -22,5 +27,10 @@ class TestCase extends Orchestra
     public function getEnvironmentSetUp($app): void
     {
         config()->set('database.default', 'testing');
+        config()->set('database.connections.testing', [
+            'driver' => 'sqlite',
+            'database' => ':memory:',
+            'prefix' => '',
+        ]);
     }
 }
