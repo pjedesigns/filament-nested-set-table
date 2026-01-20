@@ -25,7 +25,7 @@ trait InteractsWithTree
      */
     public function getTreeIcon(): ?string
     {
-        return null;
+        return 'heroicon-o-folder';
     }
 
     /**

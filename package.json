@@ -7,11 +7,9 @@
         "dev": "vite build --watch",
         "build": "npm run build:js && npm run build:css",
         "build:js": "vite build",
-        "build:css": "npx @tailwindcss/cli -i resources/css/filament-nested-set-table.css -o resources/dist/filament-nested-set-table.css --minify"
+        "build:css": "cp resources/css/filament-nested-set-table.css resources/dist/filament-nested-set-table.css"
     },
     "devDependencies": {
-        "@tailwindcss/cli": "^4.0.0",
-        "tailwindcss": "^4.0.0",
         "vite": "^7.0.0"
     },
     "dependencies": {

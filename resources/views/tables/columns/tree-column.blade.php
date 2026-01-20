@@ -63,16 +63,16 @@
 
             $formattedState = $formatState($state);
 
-            $icon = $getIcon();
+            $icon = $getIcon($state);
             $iconPosition = $getIconPosition();
             $iconSize = $getIconSize();
 
-            $color = $getColor();
+            $color = $getColor($state);
             $copyableState = $getCopyableState() ?? $state;
             $copyMessage = $getCopyMessage();
             $copyMessageDuration = $getCopyMessageDuration();
             $isCopyable = $isCopyable();
-            $tooltip = $getTooltip();
+            $tooltip = $getTooltip($state);
 
             $isListWithLineBreaks = $isListWithLineBreaks();
             $isProse = $isProse();
