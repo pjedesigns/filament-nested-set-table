@@ -141,25 +141,93 @@
 
             const tr = this.$el.closest('tr');
             if (tr) {
-                tr.style.opacity = '0.4';
-            }
+                // Create a floating clone of the entire row
+                const rect = tr.getBoundingClientRect();
+                const clone = tr.cloneNode(true);
+                clone.id = 'tree-drag-clone';
 
-            const dragEl = this.$el.querySelector('.tree-content');
-            if (dragEl) {
-                const clone = document.createElement('div');
-                clone.textContent = dragEl.textContent.trim();
-                clone.style.cssText = 'position:absolute;top:-1000px;left:-1000px;background:white;padding:8px 16px;border-radius:6px;box-shadow:0 4px 12px rgba(0,0,0,0.15);font-size:14px;font-family:system-ui,sans-serif;color:#111827;white-space:nowrap;';
+                // Remove all Alpine/Livewire attributes to prevent initialization errors
+                clone.querySelectorAll('*').forEach(el => {
+                    [...el.attributes].forEach(attr => {
+                        if (attr.name.startsWith('x-') || attr.name.startsWith('wire:') || attr.name === 'x-data' || attr.name === 'x-bind:class') {
+                            el.removeAttribute(attr.name);
+                        }
+                    });
+                });
+                // Also remove from the clone itself
+                [...clone.attributes].forEach(attr => {
+                    if (attr.name.startsWith('x-') || attr.name.startsWith('wire:')) {
+                        clone.removeAttribute(attr.name);
+                    }
+                });
+
+                clone.style.cssText = `
+                    position: fixed;
+                    top: ${rect.top}px;
+                    left: ${rect.left}px;
+                    width: ${rect.width}px;
+                    height: ${rect.height}px;
+                    background: white;
+                    box-shadow: 0 10px 40px rgba(0,0,0,0.2), 0 4px 12px rgba(0,0,0,0.1);
+                    border-radius: 8px;
+                    z-index: 9999;
+                    pointer-events: none;
+                    opacity: 0.95;
+                    transform: scale(1.02) rotate(1deg);
+                    transition: transform 0.1s ease;
+                `;
                 document.body.appendChild(clone);
-                e.dataTransfer.setDragImage(clone, 20, 15);
-                requestAnimationFrame(() => setTimeout(() => clone.remove(), 100));
+
+                // Store initial offset for drag tracking
+                window._treeDragOffset = {
+                    x: e.clientX - rect.left,
+                    y: e.clientY - rect.top
+                };
+
+                // Ghost the original row
+                tr.style.opacity = '0.3';
+                tr.style.background = 'repeating-linear-gradient(45deg, transparent, transparent 5px, rgba(0,0,0,0.03) 5px, rgba(0,0,0,0.03) 10px)';
+
+                // Use a tiny transparent image as the native drag image (hide it)
+                const emptyImg = new Image();
+                emptyImg.src = 'data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7';
+                e.dataTransfer.setDragImage(emptyImg, 0, 0);
+
+                // Add dragover event listener on document to move the clone
+                // (drag event doesn't provide reliable coordinates in all browsers)
+                const dragHandler = (dragEvent) => {
+                    const cloneEl = document.getElementById('tree-drag-clone');
+                    if (cloneEl && window._treeDragOffset && dragEvent.clientX !== 0 && dragEvent.clientY !== 0) {
+                        cloneEl.style.top = (dragEvent.clientY - window._treeDragOffset.y) + 'px';
+                        cloneEl.style.left = (dragEvent.clientX - window._treeDragOffset.x) + 'px';
+                    }
+                };
+                document.addEventListener('dragover', dragHandler);
+                window._treeDragHandler = dragHandler;
             }
         },
         endDrag(e) {
+            // Remove the floating clone
+            const clone = document.getElementById('tree-drag-clone');
+            if (clone) {
+                clone.remove();
+            }
+
+            // Clean up drag handler
+            if (window._treeDragHandler) {
+                document.removeEventListener('dragover', window._treeDragHandler);
+                window._treeDragHandler = null;
+            }
+            window._treeDragOffset = null;
+
+            // Restore the original row
             const tr = this.$el.closest('tr');
             if (tr) {
                 tr.style.opacity = '';
+                tr.style.background = '';
             }
 
+            // Clean up all drop indicators and highlights
             document.querySelectorAll('.tree-drop-indicator').forEach(el => {
                 el.style.display = 'none';
             });

@@ -2,6 +2,16 @@
 
 All notable changes to `filament-nested-set-table` will be documented in this file.
 
+## v1.0.1 - 2026-01-20
+
+### Enhanced
+- Floating row effect during drag-and-drop - the entire row now visually lifts and follows the cursor
+- Original row shows ghosted placeholder with striped background while dragging
+- Clone has elevated shadow and slight rotation for a polished "lifted" appearance
+
+### Fixed
+- Removed Alpine/Livewire attributes from drag clone to prevent `isRecordSelected` errors
+
 ## v1.0.0 - 2026-01-20
 
 ### Features
