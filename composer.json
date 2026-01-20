@@ -1,0 +1,75 @@
+{
+    "name": "pjedesigns/filament-nested-set-table",
+    "description": "A Filament table component for displaying and managing nested set data structures with drag-and-drop reordering support.",
+    "keywords": [
+        "pjedesigns",
+        "laravel",
+        "filament",
+        "filamentphp",
+        "nested-set",
+        "tree",
+        "hierarchical",
+        "table",
+        "drag-drop",
+        "filament-nested-set-table"
+    ],
+    "homepage": "https://github.com/pjedesigns/filament-nested-set-table",
+    "license": "MIT",
+    "authors": [
+        {
+            "name": "Paul Egan",
+            "email": "paul@pjedesigns.com",
+            "role": "Developer"
+        }
+    ],
+    "require": {
+        "php": "^8.4",
+        "filament/filament": "^4.0",
+        "kalnoy/nestedset": "^6.0",
+        "spatie/laravel-package-tools": "^1.16"
+    },
+    "require-dev": {
+        "laravel/pint": "^1.0",
+        "nunomaduro/collision": "^8.1",
+        "orchestra/testbench": "^10.0",
+        "pestphp/pest": "^4.0",
+        "pestphp/pest-plugin-arch": "^4.0",
+        "pestphp/pest-plugin-laravel": "^4.0",
+        "phpstan/extension-installer": "^1.1",
+        "phpstan/phpstan-deprecation-rules": "^2.0",
+        "phpstan/phpstan-phpunit": "^2.0"
+    },
+    "autoload": {
+        "psr-4": {
+            "Pjedesigns\\FilamentNestedSetTable\\": "src/"
+        }
+    },
+    "autoload-dev": {
+        "psr-4": {
+            "Pjedesigns\\FilamentNestedSetTable\\Tests\\": "tests/"
+        }
+    },
+    "scripts": {
+        "post-autoload-dump": "@php ./vendor/bin/testbench package:discover --ansi",
+        "analyse": "vendor/bin/phpstan analyse",
+        "test": "vendor/bin/pest",
+        "test-coverage": "vendor/bin/pest --coverage",
+        "format": "vendor/bin/pint"
+    },
+    "config": {
+        "sort-packages": true,
+        "allow-plugins": {
+            "pestphp/pest-plugin": true,
+            "phpstan/extension-installer": true
+        }
+    },
+    "extra": {
+        "laravel": {
+            "providers": [
+                "Pjedesigns\\FilamentNestedSetTable\\FilamentNestedSetTableServiceProvider"
+            ]
+        }
+    },
+    "minimum-stability": "dev",
+    "prefer-stable": true
+}
