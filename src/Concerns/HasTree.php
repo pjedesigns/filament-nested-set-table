@@ -3,6 +3,7 @@
 namespace Pjedesigns\FilamentNestedSetTable\Concerns;
 
 use Filament\Notifications\Notification;
+use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Livewire\Attributes\Computed;
@@ -45,6 +46,18 @@ trait HasTree
     public function mountHasTree(): void
     {
         $this->bootHasTree();
+    }
+
+    /**
+     * Configure the table for tree functionality.
+     * Call this in your table() method to add tree-specific configuration.
+     */
+    public function configureTreeTable(Table $table): Table
+    {
+        return $table
+            ->modifyQueryUsing(fn (Builder $query) => $this->applyTreeQueryModifications($query))
+            ->recordUrl(null) // Disable row click navigation in tree mode
+            ->contentGrid(null);
     }
 
     /**
@@ -239,12 +252,16 @@ trait HasTree
         $policy = policy($node);
 
         if ($policy && method_exists($policy, 'reorder')) {
-            return $policy->reorder(auth()->user(), $node);
+            $result = $policy->reorder(auth()->user(), $node);
+
+            return $result instanceof \Illuminate\Auth\Access\Response ? $result->allowed() : (bool) $result;
         }
 
         // Default to checking update permission
         if ($policy && method_exists($policy, 'update')) {
-            return $policy->update(auth()->user(), $node);
+            $result = $policy->update(auth()->user(), $node);
+
+            return $result instanceof \Illuminate\Auth\Access\Response ? $result->allowed() : (bool) $result;
         }
 
         return true;

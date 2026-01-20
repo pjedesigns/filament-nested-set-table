@@ -10,21 +10,48 @@
     $depth = $record->depth ?? 0;
 
     $isExpanded = $this->isNodeExpanded($nodeId);
+
+    // Get the formatted state for display
+    $formattedState = $formatState($state);
 @endphp
 
 <div
-    class="fi-ta-tree-column flex items-center gap-1"
+    class="fi-ta-tree-column flex items-center gap-1 w-full py-1"
     style="padding-left: {{ $indentPadding }}px"
     data-node-id="{{ $nodeId }}"
     data-parent-id="{{ $parentId }}"
     data-depth="{{ $depth }}"
+    x-data="{
+        nodeId: {{ $nodeId }},
+        parentId: {{ $parentId ?? 'null' }},
+        depth: {{ $depth }},
+        isDragOver: false
+    }"
+    @if($showDragHandle)
+    x-on:dragover.prevent="isDragOver = true; $event.dataTransfer.dropEffect = 'move'"
+    x-on:dragleave="isDragOver = false"
+    x-on:drop.prevent="
+        isDragOver = false;
+        const draggedNodeId = parseInt($event.dataTransfer.getData('text/plain'));
+        if (draggedNodeId && draggedNodeId !== nodeId) {
+            $wire.call('handleNodeMoved', draggedNodeId, nodeId, 0);
+        }
+    "
+    x-bind:class="{ 'bg-primary-50 dark:bg-primary-900/50 rounded': isDragOver }"
+    @endif
 >
     {{-- Drag Handle --}}
     @if ($showDragHandle)
-        <button
-            type="button"
+        <div
             class="tree-drag-handle flex h-6 w-6 shrink-0 cursor-grab items-center justify-center rounded text-gray-400 hover:bg-gray-50 hover:text-gray-500 dark:text-gray-500 dark:hover:bg-white/5 dark:hover:text-gray-400"
             title="{{ __('Drag to reorder') }}"
+            draggable="true"
+            x-on:dragstart="
+                $event.dataTransfer.effectAllowed = 'move';
+                $event.dataTransfer.setData('text/plain', nodeId.toString());
+                $el.closest('tr').style.opacity = '0.5';
+            "
+            x-on:dragend="$el.closest('tr').style.opacity = '1'"
         >
             <x-filament::icon
                 icon="heroicon-m-ellipsis-vertical"
@@ -34,7 +61,7 @@
                 icon="heroicon-m-ellipsis-vertical"
                 class="h-4 w-4"
             />
-        </button>
+        </div>
     @endif
 
     {{-- Expand/Collapse Toggle --}}
@@ -55,135 +82,10 @@
         <span class="w-6 shrink-0"></span>
     @endif
 
-    {{-- Content (delegate to parent TextColumn rendering) --}}
+    {{-- Content --}}
     <div class="tree-content min-w-0 flex-1">
-        @php
-            $isClickable = $getUrl() || $getAction();
-            $shouldOpenUrlInNewTab = $shouldOpenUrlInNewTab();
-
-            $formattedState = $formatState($state);
-
-            $icon = $getIcon($state);
-            $iconPosition = $getIconPosition();
-            $iconSize = $getIconSize();
-
-            $color = $getColor($state);
-            $copyableState = $getCopyableState() ?? $state;
-            $copyMessage = $getCopyMessage();
-            $copyMessageDuration = $getCopyMessageDuration();
-            $isCopyable = $isCopyable();
-            $tooltip = $getTooltip($state);
-
-            $isListWithLineBreaks = $isListWithLineBreaks();
-            $isProse = $isProse();
-
-            $weight = $getWeight();
-            $fontFamily = $getFontFamily();
-        @endphp
-
-        @if ($isBadge())
-            <x-filament::badge
-                :color="$color"
-                :icon="$icon"
-                :icon-position="$iconPosition"
-                :size="$getSize() ?? 'sm'"
-            >
-                {{ $formattedState }}
-            </x-filament::badge>
-        @else
-            <div
-                @class([
-                    'fi-ta-text-item inline-flex items-center gap-1.5',
-                    match ($color) {
-                        null => 'text-gray-950 dark:text-white',
-                        'gray' => 'text-gray-500 dark:text-gray-400',
-                        default => 'fi-color-custom text-custom-600 dark:text-custom-400',
-                    },
-                    is_string($color) ? "fi-color-{$color}" : null,
-                    match ($getSize()) {
-                        'xs', \Filament\Support\Enums\TextSize::ExtraSmall => 'text-xs',
-                        'sm', \Filament\Support\Enums\TextSize::Small, null => 'text-sm',
-                        'base', 'md', \Filament\Support\Enums\TextSize::Medium => 'text-base',
-                        'lg', \Filament\Support\Enums\TextSize::Large => 'text-lg',
-                        default => $getSize(),
-                    },
-                    match ($weight) {
-                        'thin', \Filament\Support\Enums\FontWeight::Thin => 'font-thin',
-                        'extralight', \Filament\Support\Enums\FontWeight::ExtraLight => 'font-extralight',
-                        'light', \Filament\Support\Enums\FontWeight::Light => 'font-light',
-                        'medium', \Filament\Support\Enums\FontWeight::Medium => 'font-medium',
-                        'semibold', \Filament\Support\Enums\FontWeight::SemiBold => 'font-semibold',
-                        'bold', \Filament\Support\Enums\FontWeight::Bold => 'font-bold',
-                        'extrabold', \Filament\Support\Enums\FontWeight::ExtraBold => 'font-extrabold',
-                        'black', \Filament\Support\Enums\FontWeight::Black => 'font-black',
-                        default => null,
-                    },
-                    match ($fontFamily) {
-                        'sans', \Filament\Support\Enums\FontFamily::Sans => 'font-sans',
-                        'serif', \Filament\Support\Enums\FontFamily::Serif => 'font-serif',
-                        'mono', \Filament\Support\Enums\FontFamily::Mono => 'font-mono',
-                        default => null,
-                    },
-                ])
-                @if (filled($tooltip))
-                    x-tooltip="{
-                        content: @js($tooltip),
-                        theme: $store.theme,
-                    }"
-                @endif
-            >
-                @if ($icon && $iconPosition === \Filament\Support\Enums\IconPosition::Before)
-                    <x-filament::icon
-                        :icon="$icon"
-                        @class([
-                            'fi-ta-text-item-icon',
-                            match ($iconSize) {
-                                'xs', \Filament\Support\Enums\IconSize::ExtraSmall => 'h-3 w-3',
-                                'sm', \Filament\Support\Enums\IconSize::Small => 'h-4 w-4',
-                                'md', \Filament\Support\Enums\IconSize::Medium => 'h-5 w-5',
-                                'lg', \Filament\Support\Enums\IconSize::Large => 'h-6 w-6',
-                                'xl', \Filament\Support\Enums\IconSize::ExtraLarge => 'h-7 w-7',
-                                default => 'h-5 w-5',
-                            },
-                        ])
-                    />
-                @endif
-
-                <span @class([
-                    'fi-ta-text-item-label',
-                    'cursor-pointer' => $isCopyable,
-                    'truncate' => ! $canWrap(),
-                ])
-                    @if ($isCopyable)
-                        x-on:click="
-                            window.navigator.clipboard.writeText(@js($copyableState))
-                            $tooltip(@js($copyMessage), {
-                                theme: $store.theme,
-                                timeout: @js($copyMessageDuration),
-                            })
-                        "
-                    @endif
-                >
-                    {{ $formattedState }}
-                </span>
-
-                @if ($icon && $iconPosition === \Filament\Support\Enums\IconPosition::After)
-                    <x-filament::icon
-                        :icon="$icon"
-                        @class([
-                            'fi-ta-text-item-icon',
-                            match ($iconSize) {
-                                'xs', \Filament\Support\Enums\IconSize::ExtraSmall => 'h-3 w-3',
-                                'sm', \Filament\Support\Enums\IconSize::Small => 'h-4 w-4',
-                                'md', \Filament\Support\Enums\IconSize::Medium => 'h-5 w-5',
-                                'lg', \Filament\Support\Enums\IconSize::Large => 'h-6 w-6',
-                                'xl', \Filament\Support\Enums\IconSize::ExtraLarge => 'h-7 w-7',
-                                default => 'h-5 w-5',
-                            },
-                        ])
-                    />
-                @endif
-            </div>
-        @endif
+        <span class="fi-ta-text-item text-sm text-gray-950 dark:text-white">
+            {{ $formattedState }}
+        </span>
     </div>
 </div>
