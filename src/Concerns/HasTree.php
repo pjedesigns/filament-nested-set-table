@@ -4,19 +4,17 @@ namespace Pjedesigns\FilamentNestedSetTable\Concerns;
 
 use Filament\Notifications\Notification;
 use Filament\Tables\Table;
-use Illuminate\Database\Eloquent\Builder;
-use Illuminate\Database\Eloquent\Model;
 use Illuminate\Contracts\Pagination\CursorPaginator;
 use Illuminate\Contracts\Pagination\Paginator;
+use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Database\Eloquent\Model;
 use Illuminate\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Collection;
 use Livewire\Attributes\Computed;
 use Livewire\Attributes\On;
-use Livewire\Attributes\Renderless;
 use Pjedesigns\FilamentNestedSetTable\Events\NodeMoved;
 use Pjedesigns\FilamentNestedSetTable\Events\NodeMoveFailed;
 use Pjedesigns\FilamentNestedSetTable\Services\MoveResult;
-use Pjedesigns\FilamentNestedSetTable\Services\TreeMover;
 
 trait HasTree
 {
@@ -117,7 +115,7 @@ trait HasTree
      * Override pagination to properly handle tree structure.
      * Pagination counts root nodes only, but all visible children are included.
      */
-    protected function paginateTableQuery(Builder $query): Paginator | CursorPaginator
+    protected function paginateTableQuery(Builder $query): Paginator|CursorPaginator
     {
         if (! $this->treeMode) {
             return parent::paginateTableQuery($query);
