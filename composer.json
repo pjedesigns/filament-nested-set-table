@@ -1,6 +1,5 @@
 {
     "name": "pjedesigns/filament-nested-set-table",
-    "version": "1.1.0",
     "description": "A Filament table component for displaying and managing nested set data structures with drag-and-drop reordering support.",
     "keywords": [
         "pjedesigns",
@@ -23,8 +22,12 @@
             "role": "Developer"
         }
     ],
+    "support": {
+        "issues": "https://github.com/pjedesigns/filament-nested-set-table/issues",
+        "source": "https://github.com/pjedesigns/filament-nested-set-table"
+    },
     "require": {
-        "php": "^8.4",
+        "php": "^8.2",
         "filament/filament": "^4.0",
         "kalnoy/nestedset": "^6.0",
         "spatie/laravel-package-tools": "^1.16"
