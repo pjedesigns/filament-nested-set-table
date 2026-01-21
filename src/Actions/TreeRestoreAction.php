@@ -2,7 +2,6 @@
 
 namespace Pjedesigns\FilamentNestedSetTable\Actions;
 
-use Closure;
 use Filament\Actions\RestoreAction;
 use Illuminate\Database\Eloquent\Model;
 

@@ -2,7 +2,6 @@
 
 namespace Pjedesigns\FilamentNestedSetTable\Actions;
 
-use Closure;
 use Filament\Actions\DeleteAction;
 use Illuminate\Database\Eloquent\Model;
 
