@@ -88,6 +88,12 @@ class HasTreeTestController
         // No-op for testing
     }
 
+    // Stub for Filament's table filter state
+    public function getTableFilterState(string $name): ?array
+    {
+        return null;
+    }
+
     // Override notification methods to avoid Filament dependency
     protected function notifyMoveSuccess(\Pjedesigns\FilamentNestedSetTable\Services\MoveResult $result): void
     {

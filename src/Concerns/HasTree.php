@@ -128,14 +128,19 @@ trait HasTree
             return parent::paginateTableQuery($query);
         }
 
-        $model = $this->getModel();
         $page = $this->getTablePage();
 
-        // Count only root nodes for pagination
-        $totalRootNodes = $model::query()->whereNull('parent_id')->count();
+        // Get a fresh base query that respects filters (soft deletes, etc.)
+        // but without the tree modifications we applied in applyTreeQueryModifications
+        $baseQuery = $this->getFilteredBaseQuery();
 
-        // Get paginated root node IDs
-        $rootNodeIds = $model::query()
+        // Count only root nodes for pagination (respecting filters)
+        $totalRootNodes = (clone $baseQuery)
+            ->whereNull('parent_id')
+            ->count();
+
+        // Get paginated root node IDs (respecting filters)
+        $rootNodeIds = (clone $baseQuery)
             ->whereNull('parent_id')
             ->defaultOrder()
             ->skip(($page - 1) * $perPage)
@@ -148,7 +153,7 @@ trait HasTree
 
         if (! empty($rootNodeIds)) {
             // Get root nodes with depth, children count, and eager loaded relations
-            $rootNodesQuery = $model::query()
+            $rootNodesQuery = (clone $baseQuery)
                 ->whereIn('id', $rootNodeIds)
                 ->withDepth()
                 ->withCount('children')
@@ -165,7 +170,7 @@ trait HasTree
             // For each root node, add it and its visible descendants
             foreach ($rootNodes as $rootNode) {
                 $records->push($rootNode);
-                $this->addVisibleDescendantsToCollection($records, $rootNode, $model);
+                $this->addVisibleDescendantsToCollection($records, $rootNode, $baseQuery);
             }
         }
 
@@ -183,20 +188,51 @@ trait HasTree
     }
 
     /**
+     * Get a fresh base query that respects table filters (soft deletes, etc.)
+     * but without tree-specific modifications.
+     */
+    public function getFilteredBaseQuery(): Builder
+    {
+        $model = $this->getModel();
+
+        // Start with a fresh query
+        $query = $model::query();
+
+        // Apply the trashed filter state if it exists
+        $trashedState = $this->getTableFilterState('trashed');
+
+        if ($trashedState && array_key_exists('value', $trashedState)) {
+            $value = $trashedState['value'];
+
+            if ($value === true || $value === '1' || $value === 1) {
+                // "With trashed" - show all including soft deleted
+                $query->withTrashed();
+            } elseif ($value === false || $value === '0' || $value === 0) {
+                // "Only trashed" - show only soft deleted
+                $query->onlyTrashed();
+            }
+            // If value is null/blank, default behavior (withoutTrashed) applies automatically
+        }
+
+        return $query;
+    }
+
+    /**
      * Recursively add visible descendants of a node to the collection.
      * A descendant is visible if all its ancestors are expanded.
+     *
+     * @param  Collection  $records  The collection to add records to
+     * @param  Model  $node  The parent node
+     * @param  Builder  $baseQuery  The base query with filters applied (soft deletes, etc.)
      */
-    /**
-     * @param  class-string<Model>  $model
-     */
-    protected function addVisibleDescendantsToCollection(Collection $records, Model $node, string $model): void
+    protected function addVisibleDescendantsToCollection(Collection $records, Model $node, Builder $baseQuery): void
     {
         // Only add children if this node is expanded
         if (! in_array($node->getKey(), $this->expandedNodes)) {
             return;
         }
 
-        $childrenQuery = $model::query()
+        $childrenQuery = (clone $baseQuery)
             ->where('parent_id', $node->getKey())
             ->withDepth()
             ->withCount('children')
@@ -213,7 +249,7 @@ trait HasTree
         foreach ($children as $child) {
             $records->push($child);
             // Recursively add this child's visible descendants
-            $this->addVisibleDescendantsToCollection($records, $child, $model);
+            $this->addVisibleDescendantsToCollection($records, $child, $baseQuery);
         }
     }
 
@@ -271,10 +307,11 @@ trait HasTree
             return;
         }
 
-        $model = $this->getModel();
+        // Use filtered base query to respect soft deletes
+        $baseQuery = $this->getFilteredBaseQuery();
 
         // Get all node IDs that are children of expanded nodes
-        $childIds = $model::query()
+        $childIds = (clone $baseQuery)
             ->whereIn('parent_id', $this->expandedNodes)
             ->pluck('id')
             ->toArray();
@@ -287,24 +324,24 @@ trait HasTree
             $query->orWhereIn('parent_id', $expandedChildIds);
 
             // Recursively check for more levels
-            $this->addNestedExpandedDescendants($query, $expandedChildIds, $model);
+            $this->addNestedExpandedDescendants($query, $expandedChildIds, $baseQuery);
         }
     }
 
     /**
      * Recursively add deeper nested descendants.
      *
-     * @param  class-string<Model>  $model
+     * @param  Builder  $baseQuery  The base query with filters applied
      */
-    protected function addNestedExpandedDescendants(Builder $query, array $parentIds, string $model, int $depth = 0): void
+    protected function addNestedExpandedDescendants(Builder $query, array $parentIds, Builder $baseQuery, int $depth = 0): void
     {
         // Prevent infinite recursion
         if ($depth > 20 || empty($parentIds)) {
             return;
         }
 
-        // Get children of these parents
-        $childIds = $model::query()
+        // Get children of these parents (respecting filters)
+        $childIds = (clone $baseQuery)
             ->whereIn('parent_id', $parentIds)
             ->pluck('id')
             ->toArray();
@@ -314,7 +351,7 @@ trait HasTree
 
         if (! empty($expandedChildIds)) {
             $query->orWhereIn('parent_id', $expandedChildIds);
-            $this->addNestedExpandedDescendants($query, $expandedChildIds, $model, $depth + 1);
+            $this->addNestedExpandedDescendants($query, $expandedChildIds, $baseQuery, $depth + 1);
         }
     }
 
@@ -386,8 +423,7 @@ trait HasTree
      */
     public function expandAllNodes(): void
     {
-        $model = $this->getModel();
-        $this->expandedNodes = $model::query()
+        $this->expandedNodes = $this->getFilteredBaseQuery()
             ->whereHas('children')
             ->pluck('id')
             ->map(fn ($id) => (int) $id)

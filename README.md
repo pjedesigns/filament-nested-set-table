@@ -12,6 +12,7 @@ A Filament 4 table component for displaying and managing nested set data structu
 - **Two Display Modes**: Standard Filament table with tree features OR dedicated ordering page
 - **Drag-and-Drop Reordering**: Intuitive touch-friendly drag-and-drop with visual drop zones
 - **Nested Set Integration**: Works seamlessly with `kalnoy/nestedset` package
+- **Tree-Aware Actions**: Delete, force-delete, and restore actions that show descendant counts
 - **Expand/Collapse**: Toggle visibility of child nodes with session persistence
 - **Lazy Loading**: Only loads visible nodes for better performance with large trees (HasTree)
 - **Eager Loading Support**: Configure relationships to eager load with tree queries
@@ -415,6 +416,124 @@ class ListCategories extends ListRecords
 ```
 
 This overrides the global config value (`filament-nested-set-table.max_depth`) for this specific page.
+
+---
+
+## Tree-Aware Actions
+
+When working with nested set data, deleting, force-deleting, or restoring a node will also affect its descendants. The `kalnoy/nestedset` package automatically cascades these operations to child nodes.
+
+This package provides tree-aware action classes that display the descendant count in the confirmation modal, so users know exactly how many items will be affected.
+
+### Available Actions
+
+| Action | Description |
+|--------|-------------|
+| `TreeDeleteAction` | Shows count of child items that will also be soft-deleted |
+| `TreeForceDeleteAction` | Shows count of child items (including trashed) that will be permanently deleted |
+| `TreeRestoreAction` | Shows count of trashed child items that will also be restored |
+
+### Basic Usage
+
+```php
+use Pjedesigns\FilamentNestedSetTable\Actions\TreeDeleteAction;
+use Pjedesigns\FilamentNestedSetTable\Actions\TreeForceDeleteAction;
+use Pjedesigns\FilamentNestedSetTable\Actions\TreeRestoreAction;
+
+public static function table(Table $table): Table
+{
+    return $table
+        ->columns([...])
+        ->actions([
+            TreeDeleteAction::make(),
+            TreeRestoreAction::make(),
+            TreeForceDeleteAction::make(),
+        ]);
+}
+```
+
+### Custom Delete Logic
+
+The tree actions extend Filament's base actions (`DeleteAction`, `ForceDeleteAction`, `RestoreAction`) and only add the `modalDescription` showing the descendant count. The actual delete/restore logic uses the default Filament behavior.
+
+If your application has custom delete logic (e.g., using service classes, custom validation, or additional cleanup), you should extend the tree actions and override the `using()` method:
+
+```php
+<?php
+
+namespace App\Filament\Actions;
+
+use Illuminate\Database\Eloquent\Model;
+use Pjedesigns\FilamentNestedSetTable\Actions\TreeDeleteAction as BaseTreeDeleteAction;
+
+class TreeDeleteAction extends BaseTreeDeleteAction
+{
+    protected function setUp(): void
+    {
+        parent::setUp();
+
+        // Customize modal heading
+        $this->modalHeading(fn (): string => __('Delete :title', ['title' => $this->getRecordTitle()]));
+
+        // Customize success notification
+        $this->successNotificationTitle(fn (?Model $record): string =>
+            __(':title deleted successfully', ['title' => $record?->title ?? 'Record'])
+        );
+
+        // Custom delete logic
+        $this->using(function (Model $record): Model {
+            // Your custom delete logic here
+            // For example, using a service class:
+            $record->getService()->delete($record);
+
+            return $record;
+        });
+    }
+}
+```
+
+### Handling Orphaned Nodes on Restore
+
+When restoring a soft-deleted node, its parent may have been permanently deleted. The `kalnoy/nestedset` package will restore the node, but it may be left orphaned (with a `parent_id` pointing to a non-existent record).
+
+Consider handling this in your custom restore action:
+
+```php
+$this->using(function (Model $record): Model {
+    // Check if parent was permanently deleted
+    if ($record->parent_id && ! $record->parent) {
+        // Make this node a root node
+        $record->saveAsRoot();
+    }
+
+    $record->restore();
+
+    return $record;
+});
+```
+
+### Translations
+
+The actions use the following translation keys from `filament-nested-set-table::actions`:
+
+```php
+return [
+    'delete_confirm' => 'Are you sure you want to delete this item?',
+    'delete_confirm_with_children' => 'Are you sure you want to delete this item? This will also delete :count child item.|Are you sure you want to delete this item? This will also delete :count child items.',
+
+    'force_delete_confirm' => 'Are you sure you want to permanently delete this item? This action cannot be undone.',
+    'force_delete_confirm_with_children' => 'Are you sure you want to permanently delete this item? This will also permanently delete :count child item. This action cannot be undone.|Are you sure you want to permanently delete this item? This will also permanently delete :count child items. This action cannot be undone.',
+
+    'restore_confirm' => 'Are you sure you want to restore this item?',
+    'restore_confirm_with_children' => 'Are you sure you want to restore this item? This will also restore :count child item.|Are you sure you want to restore this item? This will also restore :count child items.',
+];
+```
+
+Publish translations to customize:
+
+```bash
+php artisan vendor:publish --tag="filament-nested-set-table-translations"
+```
 
 ---
 
