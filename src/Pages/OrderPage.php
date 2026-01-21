@@ -37,6 +37,7 @@ use Pjedesigns\FilamentNestedSetTable\Services\MoveResult;
 abstract class OrderPage extends Page
 {
     use InteractsWithParentRecord;
+
     protected string $view = 'filament-nested-set-table::pages.order-page';
 
     /**
