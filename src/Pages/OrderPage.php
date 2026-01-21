@@ -4,6 +4,7 @@ namespace Pjedesigns\FilamentNestedSetTable\Pages;
 
 use Filament\Actions\Action;
 use Filament\Notifications\Notification;
+use Filament\Resources\Pages\Concerns\InteractsWithParentRecord;
 use Filament\Resources\Pages\Page;
 use Illuminate\Contracts\Support\Htmlable;
 use Illuminate\Database\Eloquent\Model;
@@ -29,9 +30,13 @@ use Pjedesigns\FilamentNestedSetTable\Services\MoveResult;
  * ```
  *
  * The model is automatically resolved from the resource.
+ *
+ * For nested resources (child resources), the trait InteractsWithParentRecord
+ * is automatically included to handle parent record resolution.
  */
 abstract class OrderPage extends Page
 {
+    use InteractsWithParentRecord;
     protected string $view = 'filament-nested-set-table::pages.order-page';
 
     /**
@@ -136,23 +141,60 @@ abstract class OrderPage extends Page
             $query->with($eagerLoad);
         }
 
-        return $query->get()
-            ->map(fn (Model $node) => $this->transformNode($node))
+        $nodes = $query->get();
+
+        // For scoped trees, withDepth() may return -1, so we calculate depth manually
+        $depthMap = $this->calculateDepths($nodes);
+
+        return $nodes
+            ->map(fn (Model $node) => $this->transformNode($node, $depthMap[$node->getKey()] ?? 0))
             ->toArray();
     }
 
     /**
-     * Transform a node model into an array for the frontend.
+     * Calculate depths manually for scoped trees where withDepth() returns -1.
+     *
+     * @param  \Illuminate\Support\Collection  $nodes
+     * @return array<int, int> Map of node ID to depth
      */
-    protected function transformNode(Model $node): array
+    protected function calculateDepths($nodes): array
+    {
+        $depthMap = [];
+        $nodeMap = $nodes->keyBy(fn ($node) => $node->getKey());
+
+        foreach ($nodes as $node) {
+            $depth = 0;
+            $currentParentId = $node->parent_id;
+
+            while ($currentParentId !== null) {
+                $depth++;
+                $parent = $nodeMap->get($currentParentId);
+                $currentParentId = $parent?->parent_id;
+            }
+
+            $depthMap[$node->getKey()] = $depth;
+        }
+
+        return $depthMap;
+    }
+
+    /**
+     * Transform a node model into an array for the frontend.
+     *
+     * @param  int|null  $calculatedDepth  Manually calculated depth for scoped trees
+     */
+    protected function transformNode(Model $node, ?int $calculatedDepth = null): array
     {
         $labelColumn = $this->getLabelColumn();
+
+        // Use calculated depth if provided, otherwise fall back to model depth
+        $depth = $calculatedDepth ?? ($node->depth >= 0 ? $node->depth : 0);
 
         $data = [
             'id' => $node->getKey(),
             'parent_id' => $node->parent_id,
             'label' => $node->getAttribute($labelColumn),
-            'depth' => $node->depth ?? 0,
+            'depth' => $depth,
             'has_children' => ($node->children_count ?? 0) > 0,
             'children_count' => $node->children_count ?? 0,
         ];
@@ -564,5 +606,37 @@ abstract class OrderPage extends Page
             ->body($message)
             ->danger()
             ->send();
+    }
+
+    /**
+     * Get the URL for the back to list button.
+     * Handles both regular and nested resources.
+     */
+    public function getBackUrl(): string
+    {
+        $resource = static::getResource();
+
+        // Check if this is a nested resource with a parent
+        if ($this->getParentRecord()) {
+            $parentResource = static::getParentResource();
+
+            if ($parentResource) {
+                // Try to find a relation page for this child resource
+                $parentPages = $parentResource::getPages();
+
+                foreach ($parentPages as $name => $page) {
+                    // Look for ManageRelatedRecords pages that manage this relationship
+                    if (str_contains($name, '.index') || str_contains($name, $resource::getSlug())) {
+                        return $parentResource::getUrl($name, ['record' => $this->getParentRecord()]);
+                    }
+                }
+
+                // Fallback to parent resource edit page
+                return $parentResource::getUrl('edit', ['record' => $this->getParentRecord()]);
+            }
+        }
+
+        // Regular resource - just go to index
+        return $resource::getUrl('index');
     }
 }

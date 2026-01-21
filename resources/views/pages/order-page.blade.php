@@ -2,7 +2,7 @@
     $nodes = $this->nodes;
     $indentSize = $this->getIndentSize();
     $dragEnabled = $this->isDragEnabled();
-    $indexUrl = static::getResource()::getUrl('index');
+    $indexUrl = $this->getBackUrl();
     $resourceLabel = static::getResource()::getPluralModelLabel();
 @endphp
 
@@ -141,11 +141,11 @@
                                         type="button"
                                         x-on:click.stop="toggleNode(node.id)"
                                         class="flex h-6 w-6 shrink-0 cursor-pointer items-center justify-center rounded text-gray-400 hover:bg-gray-100 hover:text-gray-600 dark:text-gray-500 dark:hover:bg-white/10 dark:hover:text-gray-400"
-                                        :title="isExpanded(node.id) ? '{{ __('filament-nested-set-table::messages.collapse') }}' : '{{ __('filament-nested-set-table::messages.expand') }}'"
+                                        :title="expandedNodes.has(node.id) ? '{{ __('filament-nested-set-table::messages.collapse') }}' : '{{ __('filament-nested-set-table::messages.expand') }}'"
                                     >
                                         <span
-                                            class="transition-transform duration-150"
-                                            :class="{ '-rotate-90': !isExpanded(node.id) }"
+                                            style="display: inline-block; transition: transform 150ms;"
+                                            :style="expandedNodes.has(node.id) ? '' : 'transform: rotate(-90deg);'"
                                         >
                                             <x-filament::icon
                                                 icon="heroicon-m-chevron-down"
@@ -207,12 +207,7 @@
                 processingNodeId: null,
 
                 init() {
-                    // Expand all nodes with children by default
-                    this.nodes.forEach(node => {
-                        if (node.has_children) {
-                            this.expandedNodes.add(node.id);
-                        }
-                    });
+                    // Start with all nodes collapsed (expandedNodes is already an empty Set)
 
                     // Set up global drag handlers
                     document.addEventListener('dragover', this.handleGlobalDragOver.bind(this));
@@ -484,12 +479,7 @@
                     // Fetch fresh nodes from Livewire computed property
                     const newNodes = await this.$wire.getNodesForAlpine();
                     this.nodes = newNodes;
-                    // Re-expand nodes with children
-                    this.nodes.forEach(node => {
-                        if (node.has_children && !this.expandedNodes.has(node.id)) {
-                            this.expandedNodes.add(node.id);
-                        }
-                    });
+                    // Keep current expanded state - don't auto-expand
                 }
             }));
         });

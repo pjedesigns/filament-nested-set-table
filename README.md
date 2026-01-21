@@ -1,5 +1,5 @@
-# Filament Nested Set Table
-
+[# Filament Nested Set Table
+]()
 [![Latest Version on Packagist](https://img.shields.io/packagist/v/pjedesigns/filament-nested-set-table.svg?style=flat-square)](https://packagist.org/packages/pjedesigns/filament-nested-set-table)
 [![GitHub Tests Action Status](https://img.shields.io/github/actions/workflow/status/pjedesigns/filament-nested-set-table/run-tests.yml?branch=main&label=tests&style=flat-square)](https://github.com/pjedesigns/filament-nested-set-table/actions?query=workflow%3Arun-tests+branch%3Amain)
 [![GitHub Code Style Action Status](https://img.shields.io/github/actions/workflow/status/pjedesigns/filament-nested-set-table/fix-php-code-style-issues.yml?branch=main&label=code%20style&style=flat-square)](https://github.com/pjedesigns/filament-nested-set-table/actions?query=workflow%3A"Fix+PHP+code+style+issues"+branch%3Amain)
@@ -519,6 +519,91 @@ public function getScopeFilter(): array
     return ['navigation_id' => $this->navigationId];
 }
 ```
+
+---
+
+## Nested Resources (Child Resources)
+
+The `OrderPage` fully supports Filament's nested resources. When using a child resource (a resource that has a `$parentResource` property), the package automatically handles parent record resolution.
+
+### Example: Navigation Items as a Nested Resource
+
+If you have a `NavigationResource` with a nested `NavigationItemResource`:
+
+```php
+// NavigationItemResource.php
+class NavigationItemResource extends Resource
+{
+    protected static ?string $model = NavigationItem::class;
+    protected static ?string $parentResource = NavigationResource::class;
+
+    public static function getPages(): array
+    {
+        return [
+            'create' => CreateNavigationItem::route('/create'),
+            'edit' => EditNavigationItem::route('/{record}/edit'),
+            'order' => OrderNavigationItems::route('/order'),
+        ];
+    }
+}
+```
+
+Your OrderPage implementation is simple - just use `getParentRecord()` to access the parent:
+
+```php
+// OrderNavigationItems.php
+use Pjedesigns\FilamentNestedSetTable\Pages\OrderPage;
+
+class OrderNavigationItems extends OrderPage
+{
+    protected static string $resource = NavigationItemResource::class;
+
+    public function getScopeFilter(): array
+    {
+        return ['navigation_id' => $this->getParentRecord()?->getKey()];
+    }
+}
+```
+
+### How It Works
+
+The `OrderPage` uses Filament's `InteractsWithParentRecord` trait, which:
+
+1. **Automatically resolves the parent record** from route parameters
+2. **Provides `getParentRecord()`** method to access the parent model instance
+3. **Provides `getParentResource()`** static method to get the parent resource class
+4. **Handles authorization** by checking view/edit permissions on the parent
+
+### Linking to the Order Page from a Relation Page
+
+In your parent resource's `ManageRelatedRecords` page:
+
+```php
+// ManageNavigationItems.php (in NavigationResource)
+class ManageNavigationItems extends ManageRelatedRecords
+{
+    protected static string $resource = NavigationResource::class;
+    protected static string $relationship = 'navigationItems';
+    protected static ?string $relatedResource = NavigationItemResource::class;
+
+    public function table(Table $table): Table
+    {
+        return $table
+            ->headerActions([
+                Action::make('order')
+                    ->label('Order Items')
+                    ->icon('heroicon-o-bars-arrow-down')
+                    ->url(NavigationItemResource::getUrl('order', [
+                        'navigation' => $this->record->id
+                    ])),
+            ]);
+    }
+}
+```
+
+### Back Navigation
+
+The `OrderPage` automatically handles the "Back to List" button for nested resources. It will navigate back to the appropriate parent page (typically the `ManageRelatedRecords` page or the parent's edit page).
 
 ---
 
