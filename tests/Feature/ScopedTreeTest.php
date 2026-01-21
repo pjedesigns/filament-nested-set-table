@@ -77,17 +77,11 @@ class ScopedTreeTestController
     }
 
     // Stub methods required by HasTree
-    public function dispatch(string $event, ...$args): void
-    {
-    }
+    public function dispatch(string $event, ...$args): void {}
 
-    public function js(string $code): void
-    {
-    }
+    public function js(string $code): void {}
 
-    protected function resetTable(): void
-    {
-    }
+    protected function resetTable(): void {}
 
     protected function notifyMoveSuccess(\Pjedesigns\FilamentNestedSetTable\Services\MoveResult $result): void
     {

@@ -9,8 +9,6 @@ use Kalnoy\Nestedset\NodeTrait;
 use Pjedesigns\FilamentNestedSetTable\Concerns\HasTree;
 use Pjedesigns\FilamentNestedSetTable\Concerns\InteractsWithTree;
 use Pjedesigns\FilamentNestedSetTable\Events\NodeMoved;
-use Pjedesigns\FilamentNestedSetTable\Events\NodeMoveFailed;
-use Pjedesigns\FilamentNestedSetTable\Services\MoveResult;
 use Pjedesigns\FilamentNestedSetTable\Tables\Columns\TreeColumn;
 
 beforeEach(function () {
