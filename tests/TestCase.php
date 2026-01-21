@@ -2,8 +2,11 @@
 
 namespace Pjedesigns\FilamentNestedSetTable\Tests;
 
+use Filament\FilamentServiceProvider;
+use Filament\Support\SupportServiceProvider;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Kalnoy\Nestedset\NestedSetServiceProvider;
+use Livewire\LivewireServiceProvider;
 use Orchestra\Testbench\TestCase as Orchestra;
 use Pjedesigns\FilamentNestedSetTable\FilamentNestedSetTableServiceProvider;
 
@@ -19,6 +22,9 @@ class TestCase extends Orchestra
     protected function getPackageProviders($app): array
     {
         return [
+            LivewireServiceProvider::class,
+            SupportServiceProvider::class,
+            FilamentServiceProvider::class,
             NestedSetServiceProvider::class,
             FilamentNestedSetTableServiceProvider::class,
         ];
@@ -31,6 +37,12 @@ class TestCase extends Orchestra
             'driver' => 'sqlite',
             'database' => ':memory:',
             'prefix' => '',
+        ]);
+
+        // Set up a view path for testing
+        config()->set('view.paths', [
+            __DIR__.'/../resources/views',
+            resource_path('views'),
         ]);
     }
 }

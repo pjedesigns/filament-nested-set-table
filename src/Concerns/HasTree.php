@@ -186,6 +186,9 @@ trait HasTree
      * Recursively add visible descendants of a node to the collection.
      * A descendant is visible if all its ancestors are expanded.
      */
+    /**
+     * @param  class-string<Model>  $model
+     */
     protected function addVisibleDescendantsToCollection(Collection $records, Model $node, string $model): void
     {
         // Only add children if this node is expanded
@@ -290,6 +293,8 @@ trait HasTree
 
     /**
      * Recursively add deeper nested descendants.
+     *
+     * @param  class-string<Model>  $model
      */
     protected function addNestedExpandedDescendants(Builder $query, array $parentIds, string $model, int $depth = 0): void
     {
@@ -456,7 +461,8 @@ trait HasTree
         }
 
         // Max depth check
-        if (static::$maxDepth > 0) {
+        $maxDepth = $this->getMaxDepth();
+        if ($maxDepth > 0) {
             $targetDepth = $makeChild
                 ? (($targetNode->depth ?? 0) + 1)
                 : ($targetNode->depth ?? 0);
@@ -466,9 +472,9 @@ trait HasTree
 
             $resultingMaxDepth = $targetDepth + $nodeSubtreeDepth;
 
-            if ($resultingMaxDepth > static::$maxDepth) {
+            if ($resultingMaxDepth > $maxDepth) {
                 $this->notifyMoveFailed(__('filament-nested-set-table::messages.max_depth_exceeded', [
-                    'max' => static::$maxDepth,
+                    'max' => $maxDepth,
                     'resulting' => $resultingMaxDepth,
                 ]));
 
@@ -531,11 +537,13 @@ trait HasTree
             event(new NodeMoved($node->fresh(), $result, $previousParentId, $previousPosition));
             $this->notifyMoveSuccess($result);
             $this->dispatch('tree-updated');
-        } catch (\Exception $e) {
+            $this->js('window.dispatchEvent(new CustomEvent("tree-updated"))');
+        } catch (\Throwable $e) {
             $result = MoveResult::failure($e->getMessage());
             event(new NodeMoveFailed($node, $result->error, $newParentId, 0));
             $this->notifyMoveFailed($result->error);
             $this->lastMove = null;
+            $this->js('window.dispatchEvent(new CustomEvent("tree-updated"))');
         }
     }
 
@@ -623,7 +631,8 @@ trait HasTree
                 ->send();
 
             $this->dispatch('tree-updated');
-        } catch (\Exception $e) {
+            $this->js('window.dispatchEvent(new CustomEvent("tree-updated"))');
+        } catch (\Throwable $e) {
             Notification::make()
                 ->title(__('filament-nested-set-table::messages.move_failed'))
                 ->body($e->getMessage())
@@ -768,6 +777,13 @@ trait HasTree
 
     /**
      * Get the maximum allowed tree depth.
+     * Override this method in your ListRecords class to set a custom max depth.
+     *
+     * Example:
+     * public function getMaxDepth(): int
+     * {
+     *     return 5; // Limit to 5 levels
+     * }
      */
     public function getMaxDepth(): int
     {

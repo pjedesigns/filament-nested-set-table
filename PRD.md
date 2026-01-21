@@ -22,12 +22,35 @@ Create a Filament 4 package that provides a tree table component for managing hi
 |--------|---------------|---------------------------|
 | Row Rendering | Custom row component with fixed layout | Standard Filament table rows with columns, filters, actions |
 | Table Configuration | Separate form definitions | Uses standard `Table::configure()` pattern |
-| Tree Management | Full tree page replacement | **Both**: Drop-in enhancement for ListRecords AND dedicated TreePage |
+| Tree Management | Full tree page replacement | **Three options**: ListRecords enhancement, OrderPage (dedicated ordering), or both |
 | Nested Set Package | Bundled implementation | Uses existing `kalnoy/nestedset` |
 | Design Philosophy | Self-contained tree UI | Minimal modification to Filament defaults |
 | Touch Support | Limited | Full mobile/touch support from Phase 1 |
 
-### 1.3 Target Use Cases
+### 1.3 Two Distinct Components
+
+This package provides **two separate components** for different use cases:
+
+#### 1.3.1 TreeColumn + HasTree (ListRecords Enhancement)
+For integrating tree functionality into existing resource list pages:
+- **Lazy loading**: Only loads children when a node is expanded
+- **Livewire-driven**: Each expand/collapse triggers server round-trip
+- **Session persistence**: Remembers expanded state across page visits
+- **Pagination support**: Paginate by root nodes
+- **Full table features**: Filters, search, bulk actions, row actions
+- **Best for**: Resource management where you need full CRUD capabilities
+
+#### 1.3.2 OrderPage (Dedicated Ordering Page)
+For focused tree reordering without other distractions:
+- **Eager loading**: Loads ALL nodes at once on page load
+- **Pure JavaScript**: Expand/collapse is instant, no server calls
+- **No pagination**: Entire tree visible (collapsed by default)
+- **Ordering only**: No filters, search, or bulk actions
+- **Alpine.js x-show**: Fast visibility toggling via Alpine directives
+- **Server calls only on move**: Minimizes latency during reordering
+- **Best for**: Dedicated ordering pages, navigation management, menu builders
+
+### 1.4 Target Use Cases
 
 - Pages with hierarchical structure (CMS)
 - Navigation menu items
@@ -35,7 +58,7 @@ Create a Filament 4 package that provides a tree table component for managing hi
 - Organizational structures
 - Any model using `kalnoy/nestedset`'s `NodeTrait`
 
-### 1.4 Expected Scale
+### 1.5 Expected Scale
 
 - Primary focus: Small trees (< 100 nodes)
 - Suitable for: Navigation menus, small category trees, CMS pages
@@ -57,7 +80,7 @@ Create a Filament 4 package that provides a tree table component for managing hi
 
 5. **Scoped Tree Support**: Support `scoped` nested sets where multiple trees exist in one table (e.g., navigation items scoped by `navigation_id`). Cross-scope moves are blocked.
 
-6. **Dual Approach**: Provide both `HasTree` trait for ListRecords enhancement AND a dedicated `TreePage` class.
+6. **Dual Approach**: Provide both `HasTree` trait for ListRecords enhancement AND a dedicated `OrderPage` class (not shared code).
 
 7. **Mobile-First Drag**: Touch/mobile support is essential from Phase 1.
 
@@ -87,8 +110,8 @@ Create a Filament 4 package that provides a tree table component for managing hi
 
 | Decision | Choice | Rationale |
 |----------|--------|-----------|
-| Page Options | Both ListRecords enhancement AND TreePage | Maximum flexibility |
-| Code Sharing | Shared core, different presentation | TreePage and HasTree use same trait/service layer |
+| Page Options | ListRecords enhancement (HasTree) AND OrderPage (separate) | Maximum flexibility |
+| Code Sharing | **Separate implementations** | OrderPage optimized for JS-only expand/collapse, HasTree for Livewire |
 | Migration Path | Clean break | No compatibility layer with old OrderPage |
 | Simple Resources | Both supported | Works with modal CRUD and full-page resources |
 
@@ -149,13 +172,13 @@ packages/pjedesigns/filament-nested-set-table/
 ├── src/
 │   ├── FilamentNestedSetTableServiceProvider.php
 │   ├── Concerns/
-│   │   ├── HasTree.php                    # Trait for ListRecords pages
+│   │   ├── HasTree.php                    # Trait for ListRecords pages (Livewire-driven)
 │   │   └── InteractsWithTree.php          # Trait for Eloquent models
 │   ├── Tables/
 │   │   └── Columns/
 │   │       └── TreeColumn.php             # Extends TextColumn with tree indicators
 │   ├── Pages/
-│   │   └── TreePage.php                   # Dedicated tree page (extends Page)
+│   │   └── OrderPage.php                  # Dedicated ordering page (Alpine.js-driven)
 │   ├── Actions/
 │   │   ├── FixTreeAction.php              # Header action to fix corrupted tree
 │   │   └── UndoMoveAction.php             # Temporary undo button
@@ -164,27 +187,25 @@ packages/pjedesigns/filament-nested-set-table/
 │   │   ├── NodeMoveFailed.php
 │   │   └── TreeFixed.php
 │   └── Services/
-│       └── TreeMover.php                  # Business logic for moving nodes
+│       └── MoveResult.php                 # Move operation result DTO
 ├── resources/
 │   ├── views/
-│   │   ├── components/
-│   │   │   ├── tree-indicators.blade.php  # Indent + expand/collapse + drag handle
-│   │   │   ├── drop-zone.blade.php        # Visual drop target indicators
-│   │   │   └── undo-banner.blade.php      # Temporary undo notification
+│   │   ├── tables/
+│   │   │   └── columns/
+│   │   │       └── tree-column.blade.php  # TreeColumn view (Livewire)
 │   │   └── pages/
-│   │       └── tree-page.blade.php        # TreePage view
-│   ├── js/
-│   │   └── filament-nested-set-table.js   # Sortable.js bundled + touch support
-│   └── css/
-│       └── filament-nested-set-table.css  # Minimal styles for drop zones
+│   │       └── order-page.blade.php       # OrderPage view (Alpine.js)
+│   └── lang/
+│       └── en/
+│           └── messages.php               # Translation strings
 ├── config/
 │   └── filament-nested-set-table.php
 └── tests/
     ├── Unit/
-    │   └── TreeMoverTest.php
+    │   └── MoveResultTest.php
     ├── Feature/
     │   ├── HasTreeTest.php
-    │   └── TreePageTest.php
+    │   └── OrderPageTest.php
     └── TestCase.php
 ```
 
@@ -567,7 +588,12 @@ class MoveResult
 }
 ```
 
-#### 4.2.5 TreePage (Dedicated Page)
+#### 4.2.5 OrderPage (Dedicated Ordering Page)
+
+The OrderPage is a **completely separate implementation** from HasTree, optimized for:
+- Loading all nodes at once
+- Pure JavaScript expand/collapse (no server round-trips)
+- Server calls only when moving nodes
 
 ```php
 <?php
@@ -575,30 +601,284 @@ class MoveResult
 namespace Pjedesigns\FilamentNestedSetTable\Pages;
 
 use Filament\Pages\Page;
-use Filament\Tables\Table;
-use Filament\Tables\Concerns\InteractsWithTable;
-use Filament\Tables\Contracts\HasTable;
-use Pjedesigns\FilamentNestedSetTable\Concerns\HasTree;
+use Illuminate\Database\Eloquent\Model;
+use Livewire\Attributes\Computed;
 
-abstract class TreePage extends Page implements HasTable
+abstract class OrderPage extends Page
 {
-    use InteractsWithTable;
-    use HasTree;
+    protected static string $view = 'filament-nested-set-table::pages.order-page';
 
-    protected static string $view = 'filament-nested-set-table::pages.tree-page';
-
-    // Force tree mode always on for TreePage
-    public bool $treeMode = true;
-
-    public function toggleTreeMode(): void
-    {
-        // No-op for TreePage - always in tree mode
-    }
-
+    /**
+     * Get the model class for this order page.
+     */
     abstract public static function getModel(): string;
 
-    abstract public static function table(Table $table): Table;
+    /**
+     * Get the column to display as the node label.
+     */
+    public function getLabelColumn(): string
+    {
+        return 'title';
+    }
+
+    /**
+     * Get relationships to eager load.
+     */
+    public function getEagerLoading(): array
+    {
+        return [];
+    }
+
+    /**
+     * Get all nodes for the tree, fully loaded.
+     * Returns a nested structure for Alpine.js to render.
+     */
+    #[Computed]
+    public function nodes(): array
+    {
+        $model = static::getModel();
+        $eagerLoad = $this->getEagerLoading();
+
+        $query = $model::query()
+            ->withDepth()
+            ->defaultOrder();
+
+        if (!empty($eagerLoad)) {
+            $query->with($eagerLoad);
+        }
+
+        return $query->get()
+            ->map(fn (Model $node) => [
+                'id' => $node->getKey(),
+                'parent_id' => $node->parent_id,
+                'label' => $node->{$this->getLabelColumn()},
+                'depth' => $node->depth ?? 0,
+                'has_children' => $node->children()->exists(),
+                'icon' => method_exists($node, 'getTreeIcon') ? $node->getTreeIcon() : null,
+            ])
+            ->toArray();
+    }
+
+    /**
+     * Handle node move - this is the ONLY server call during reordering.
+     */
+    public function moveNode(
+        int $nodeId,
+        ?int $targetNodeId,
+        bool $insertBefore = true,
+        bool $makeChild = false
+    ): void {
+        $model = static::getModel();
+        $node = $model::find($nodeId);
+        $targetNode = $targetNodeId ? $model::find($targetNodeId) : null;
+
+        if (!$node) {
+            $this->notifyError(__('Node not found'));
+            return;
+        }
+
+        try {
+            if ($makeChild && $targetNode) {
+                $targetNode->appendNode($node);
+            } elseif ($targetNode) {
+                if ($insertBefore) {
+                    $node->insertBeforeNode($targetNode);
+                } else {
+                    $node->insertAfterNode($targetNode);
+                }
+            } else {
+                $node->makeRoot();
+            }
+
+            $this->notifySuccess(__('Order updated'));
+        } catch (\Throwable $e) {
+            $this->notifyError($e->getMessage());
+        }
+    }
+
+    /**
+     * Fix corrupted tree structure.
+     */
+    public function fixTree(): void
+    {
+        $model = static::getModel();
+        $model::fixTree();
+        $this->notifySuccess(__('Tree structure repaired'));
+    }
 }
+```
+
+#### 4.2.6 OrderPage Blade View (Alpine.js-driven)
+
+```blade
+{{-- order-page.blade.php --}}
+<x-filament-panels::page>
+    <div
+        x-data="orderTree({
+            nodes: @js($this->nodes),
+            labelColumn: @js($this->getLabelColumn()),
+        })"
+        class="space-y-2"
+    >
+        {{-- Header Actions --}}
+        <div class="flex items-center gap-2 mb-4">
+            <x-filament::button
+                x-on:click="expandAll()"
+                icon="heroicon-o-chevron-double-down"
+                color="gray"
+                size="sm"
+            >
+                {{ __('Expand All') }}
+            </x-filament::button>
+
+            <x-filament::button
+                x-on:click="collapseAll()"
+                icon="heroicon-o-chevron-double-up"
+                color="gray"
+                size="sm"
+            >
+                {{ __('Collapse All') }}
+            </x-filament::button>
+
+            <x-filament::button
+                wire:click="fixTree"
+                icon="heroicon-o-wrench"
+                color="warning"
+                size="sm"
+            >
+                {{ __('Fix Tree') }}
+            </x-filament::button>
+        </div>
+
+        {{-- Tree Container --}}
+        <div class="fi-ta-content rounded-xl bg-white shadow-sm ring-1 ring-gray-950/5 dark:bg-gray-900 dark:ring-white/10">
+            <template x-for="node in rootNodes" :key="node.id">
+                <div x-data="{ isExpanded: false }">
+                    {{-- Node Row --}}
+                    <div
+                        class="flex items-center gap-2 px-4 py-2 border-b border-gray-100 dark:border-gray-800 hover:bg-gray-50 dark:hover:bg-gray-800/50"
+                        :style="{ paddingLeft: (node.depth * 24 + 16) + 'px' }"
+                        :data-node-id="node.id"
+                        :data-parent-id="node.parent_id"
+                        :data-depth="node.depth"
+                        draggable="true"
+                        x-on:dragstart="startDrag($event, node)"
+                        x-on:dragend="endDrag($event)"
+                        x-on:dragover="handleDragOver($event)"
+                        x-on:dragleave="handleDragLeave($event)"
+                        x-on:drop="handleDrop($event, node)"
+                    >
+                        {{-- Drag Handle --}}
+                        <span class="cursor-grab text-gray-400 hover:text-gray-600">
+                            <x-heroicon-m-bars-3 class="w-4 h-4" />
+                        </span>
+
+                        {{-- Expand/Collapse Toggle --}}
+                        <button
+                            x-show="node.has_children"
+                            x-on:click="isExpanded = !isExpanded"
+                            class="p-1 rounded hover:bg-gray-100 dark:hover:bg-gray-700"
+                        >
+                            <x-heroicon-m-chevron-down
+                                class="w-4 h-4 transition-transform"
+                                ::class="{ '-rotate-90': !isExpanded }"
+                            />
+                        </button>
+                        <span x-show="!node.has_children" class="w-6"></span>
+
+                        {{-- Icon --}}
+                        <template x-if="node.icon">
+                            <x-filament::icon :icon="null" x-bind:icon="node.icon" class="w-5 h-5 text-gray-400" />
+                        </template>
+
+                        {{-- Label --}}
+                        <span class="flex-1 text-sm text-gray-900 dark:text-white" x-text="node.label"></span>
+                    </div>
+
+                    {{-- Children (recursive) --}}
+                    <div x-show="isExpanded" x-collapse>
+                        <template x-for="child in getChildren(node.id)" :key="child.id">
+                            {{-- Recursive node rendering handled by Alpine --}}
+                        </template>
+                    </div>
+                </div>
+            </template>
+        </div>
+    </div>
+
+    @push('scripts')
+    <script>
+        document.addEventListener('alpine:init', () => {
+            Alpine.data('orderTree', ({ nodes, labelColumn }) => ({
+                nodes: nodes,
+                labelColumn: labelColumn,
+                expandedNodes: [],
+                draggedNode: null,
+
+                get rootNodes() {
+                    return this.nodes.filter(n => n.parent_id === null);
+                },
+
+                getChildren(parentId) {
+                    return this.nodes.filter(n => n.parent_id === parentId);
+                },
+
+                expandAll() {
+                    this.expandedNodes = this.nodes.filter(n => n.has_children).map(n => n.id);
+                },
+
+                collapseAll() {
+                    this.expandedNodes = [];
+                },
+
+                startDrag(event, node) {
+                    this.draggedNode = node;
+                    event.dataTransfer.effectAllowed = 'move';
+                    event.dataTransfer.setData('text/plain', node.id);
+                    event.target.closest('[data-node-id]').style.opacity = '0.4';
+                },
+
+                endDrag(event) {
+                    this.draggedNode = null;
+                    event.target.closest('[data-node-id]')?.style.removeProperty('opacity');
+                },
+
+                handleDragOver(event) {
+                    event.preventDefault();
+                    // Add drop zone indicators
+                },
+
+                handleDragLeave(event) {
+                    // Remove drop zone indicators
+                },
+
+                handleDrop(event, targetNode) {
+                    event.preventDefault();
+                    if (!this.draggedNode || this.draggedNode.id === targetNode.id) return;
+
+                    // Determine drop position and call server
+                    const rect = event.target.closest('[data-node-id]').getBoundingClientRect();
+                    const y = event.clientY - rect.top;
+                    const height = rect.height;
+
+                    let insertBefore = false;
+                    let makeChild = false;
+
+                    if (y < height * 0.25) {
+                        insertBefore = true;
+                    } else if (y > height * 0.75) {
+                        insertBefore = false;
+                    } else {
+                        makeChild = true;
+                    }
+
+                    @this.moveNode(this.draggedNode.id, targetNode.id, insertBefore, makeChild);
+                }
+            }));
+        });
+    </script>
+    @endpush
+</x-filament-panels::page>
 ```
 
 ### 4.3 JavaScript Integration (Bundled with Touch Support)
@@ -895,47 +1175,47 @@ class PagesTable
 }
 ```
 
-### 6.3 Dedicated TreePage
+### 6.3 Dedicated OrderPage (Ordering Only)
+
+For a focused ordering experience without table features:
 
 ```php
 <?php
 
-namespace App\Filament\Pages;
+namespace App\Filament\Resources\PageResource\Pages;
 
-use Filament\Tables\Table;
-use App\Models\Category;
-use Pjedesigns\FilamentNestedSetTable\Pages\TreePage;
-use Pjedesigns\FilamentNestedSetTable\Tables\Columns\TreeColumn;
+use App\Models\Page;
+use Pjedesigns\FilamentNestedSetTable\Pages\OrderPage;
 
-class CategoryTree extends TreePage
+class OrderPages extends OrderPage
 {
-    protected static ?string $navigationIcon = 'heroicon-o-folder-tree';
+    protected static ?string $navigationIcon = 'heroicon-o-bars-arrow-down';
 
-    protected static ?string $title = 'Category Tree';
+    protected static ?string $title = 'Reorder Pages';
 
     public static function getModel(): string
     {
-        return Category::class;
+        return Page::class;
     }
 
-    public static function table(Table $table): Table
+    public function getLabelColumn(): string
     {
-        return $table
-            ->columns([
-                TreeColumn::make('name')
-                    ->searchable()
-                    ->dragHandle()
-                    ->expandToggle(),
-            ])
-            ->filters([
-                // Full filter support
-            ])
-            ->actions([
-                // Full action support
-            ]);
+        return 'title';
+    }
+
+    public function getEagerLoading(): array
+    {
+        return ['media']; // Optional: eager load relationships for icons/thumbnails
     }
 }
 ```
+
+**Key differences from HasTree/TreeColumn:**
+- No table, filters, search, or bulk actions
+- All nodes loaded at once (no lazy loading)
+- Expand/collapse is pure JavaScript (no server calls)
+- Only `moveNode()` triggers a server request
+- Simpler, faster for dedicated ordering tasks
 
 ### 6.4 Model with Policy
 
@@ -983,43 +1263,54 @@ Action::make('createChild')
 
 ## 7. Implementation Phases
 
-### Phase 1: Core Foundation + Touch (Week 1-2)
+### Phase 1: Core Foundation ✅ COMPLETE (v1.0.0 - v1.0.1)
 
-- [ ] Service provider setup with bundled JS
-- [ ] `HasTree` trait with basic query modification
-- [ ] `TreeColumn` extending TextColumn with indentation
-- [ ] Expand/collapse functionality
-- [ ] Touch-enabled Sortable.js integration
-- [ ] Basic drag-and-drop (siblings only)
-- [ ] Unit tests for TreeMover
+- [x] Service provider setup
+- [x] `HasTree` trait with lazy loading query modification
+- [x] `TreeColumn` extending TextColumn with indentation
+- [x] Expand/collapse functionality with session persistence
+- [x] Native HTML5 drag-and-drop with drop zone indicators
+- [x] Floating row effect during drag
+- [x] Full sibling/child move operations
+- [x] Policy-based authorization
+- [x] Scope validation (block cross-scope)
+- [x] Max depth validation
+- [x] Undo last move (10-second window)
+- [x] Laravel events (NodeMoved, NodeMoveFailed)
+- [x] Smart pagination (root nodes only)
+- [x] Eager loading support via `getTreeWith()`
+- [x] Documentation (README, CHANGELOG)
 
-### Phase 2: Full Drag + Auth (Week 2-3)
+### Phase 2: OrderPage (Dedicated Ordering) ✅ COMPLETE (v1.1.0)
 
-- [ ] Drop zones for parent/sibling indication
-- [ ] TreeMover service with all move types
-- [ ] Policy-based authorization
-- [ ] Scope validation (block cross-scope)
-- [ ] Max depth with auto-adjust
-- [ ] Undo last move (10-second window)
-- [ ] Feature tests for Livewire integration
+- [x] `OrderPage` Filament Page class (separate from HasTree)
+- [x] `order-page.blade.php` with Alpine.js
+- [x] Pure JavaScript expand/collapse (no server calls)
+- [x] Load all nodes at once (no lazy loading)
+- [x] Alpine x-show for visibility toggling
+- [x] Drag-and-drop with server call only on move
+- [x] Expand All / Collapse All buttons
+- [x] Fix Tree header action
+- [x] Translation strings for OrderPage
+- [x] CSS styles for OrderPage
+- [x] Feature tests for OrderPage
 
-### Phase 3: TreePage + Polish (Week 3-4)
+### Phase 3: Advanced Features (Future)
 
-- [ ] TreePage class with full table features
-- [ ] Tree mode toggle for ListRecords
-- [ ] Fix Tree header action
-- [ ] Auto-expand on search match
-- [ ] Laravel events (NodeMoved, etc.)
-- [ ] Optional Echo broadcasting
-- [ ] Session persistence for expanded state
-- [ ] Documentation
+- [ ] Keyboard navigation (arrow keys, Enter/Space)
+- [ ] Search within tree (auto-expand parents)
+- [ ] Multi-select drag
+- [ ] Copy/duplicate nodes
+- [ ] Virtual scrolling for very large trees
+- [ ] Real-time broadcasting (Laravel Echo)
+- [ ] Dark mode support for floating clone
 
-### Phase 4: Release Prep (Week 4)
+### Phase 4: Polish & Testing (Future)
 
-- [ ] Browser tests
-- [ ] Performance testing
+- [ ] Browser tests (Pest v4)
+- [ ] Performance testing with large trees
 - [ ] Edge case handling
-- [ ] README and docs
+- [ ] Comprehensive test suite
 - [ ] Packagist submission
 
 ---

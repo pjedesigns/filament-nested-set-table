@@ -35,6 +35,7 @@
         isExpanded: {{ $isExpanded ? 'true' : 'false' }},
         dropPosition: null,
         dropIndicator: null,
+        isProcessing: false,
         init() {
             const tr = this.$el.closest('tr');
             if (tr) {
@@ -57,6 +58,23 @@
                     tr.addEventListener('drop', (e) => this.handleRowDrop(e, tr));
                 }
             }
+
+            // Listen for tree updates to clear processing state
+            window.addEventListener('tree-updated', () => {
+                this.isProcessing = false;
+                document.querySelectorAll('tr.tree-processing').forEach(row => {
+                    row.classList.remove('tree-processing');
+                    row.style.opacity = '';
+                    row.style.pointerEvents = '';
+                });
+            });
+
+            // Listen for processing state from other nodes
+            window.addEventListener('tree-node-processing', (e) => {
+                if (e.detail && e.detail.nodeId === this.nodeId) {
+                    this.isProcessing = true;
+                }
+            });
         },
         toggleExpand() {
             $wire.toggleNode(this.nodeId);
@@ -70,7 +88,6 @@
             const rowHeight = rect.height;
 
             // Use pixel-based zones for more precise control
-            // Top 12px = before, bottom 12px = after, middle = child
             const edgeZone = Math.min(12, rowHeight * 0.25);
 
             tr.style.backgroundColor = '';
@@ -125,6 +142,19 @@
                 return;
             }
 
+            // Find the dragged row and add processing state
+            const draggedRow = document.querySelector(`tr[data-node-id='${draggedId}']`);
+            if (draggedRow) {
+                draggedRow.classList.add('tree-processing');
+                draggedRow.style.opacity = '0.5';
+                draggedRow.style.pointerEvents = 'none';
+            }
+
+            // Dispatch event to notify the dragged node's Alpine component
+            window.dispatchEvent(new CustomEvent('tree-node-processing', {
+                detail: { nodeId: draggedId }
+            }));
+
             if (this.dropPosition === 'child') {
                 $wire.handleNodeMoved(draggedId, this.nodeId, false, true);
             } else {
@@ -141,10 +171,23 @@
 
             const tr = this.$el.closest('tr');
             if (tr) {
-                // Create a floating clone of the entire row
                 const rect = tr.getBoundingClientRect();
+
+                // Get the original table to copy column widths
+                const originalTable = tr.closest('table');
+                const originalCells = tr.querySelectorAll('td');
+
+                // Create a wrapper table to preserve cell layout
+                const wrapperTable = document.createElement('table');
+                wrapperTable.id = 'tree-drag-clone';
+
+                // Copy table classes for styling consistency
+                if (originalTable) {
+                    wrapperTable.className = originalTable.className;
+                }
+
+                const tbody = document.createElement('tbody');
                 const clone = tr.cloneNode(true);
-                clone.id = 'tree-drag-clone';
 
                 // Remove all Alpine/Livewire attributes to prevent initialization errors
                 clone.querySelectorAll('*').forEach(el => {
@@ -161,7 +204,21 @@
                     }
                 });
 
-                clone.style.cssText = `
+                // Explicitly set cell widths to match original
+                const cloneCells = clone.querySelectorAll('td');
+                originalCells.forEach((cell, index) => {
+                    if (cloneCells[index]) {
+                        const cellRect = cell.getBoundingClientRect();
+                        cloneCells[index].style.width = cellRect.width + 'px';
+                        cloneCells[index].style.minWidth = cellRect.width + 'px';
+                        cloneCells[index].style.maxWidth = cellRect.width + 'px';
+                    }
+                });
+
+                tbody.appendChild(clone);
+                wrapperTable.appendChild(tbody);
+
+                wrapperTable.style.cssText = `
                     position: fixed;
                     top: ${rect.top}px;
                     left: ${rect.left}px;
@@ -175,8 +232,10 @@
                     opacity: 0.95;
                     transform: scale(1.02) rotate(1deg);
                     transition: transform 0.1s ease;
+                    border-collapse: collapse;
+                    table-layout: fixed;
                 `;
-                document.body.appendChild(clone);
+                document.body.appendChild(wrapperTable);
 
                 // Store initial offset for drag tracking
                 window._treeDragOffset = {
@@ -188,13 +247,12 @@
                 tr.style.opacity = '0.3';
                 tr.style.background = 'repeating-linear-gradient(45deg, transparent, transparent 5px, rgba(0,0,0,0.03) 5px, rgba(0,0,0,0.03) 10px)';
 
-                // Use a tiny transparent image as the native drag image (hide it)
+                // Use a tiny transparent image as the native drag image
                 const emptyImg = new Image();
                 emptyImg.src = 'data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7';
                 e.dataTransfer.setDragImage(emptyImg, 0, 0);
 
                 // Add dragover event listener on document to move the clone
-                // (drag event doesn't provide reliable coordinates in all browsers)
                 const dragHandler = (dragEvent) => {
                     const cloneEl = document.getElementById('tree-drag-clone');
                     if (cloneEl && window._treeDragOffset && dragEvent.clientX !== 0 && dragEvent.clientY !== 0) {
@@ -238,7 +296,7 @@
         }
     }"
 >
-    {{-- Drag Handle --}}
+    {{-- Drag Handle / Loading Spinner --}}
     <span
         class="tree-drag-handle flex h-6 w-6 shrink-0 cursor-grab items-center justify-center rounded text-gray-400 hover:bg-gray-50 hover:text-gray-500 dark:text-gray-500 dark:hover:bg-white/5 dark:hover:text-gray-400"
         title="{{ __('Drag to reorder') }}"
@@ -246,14 +304,22 @@
         x-on:dragstart="startDrag($event)"
         x-on:dragend="endDrag($event)"
     >
-        <x-filament::icon
-            icon="heroicon-m-ellipsis-vertical"
-            class="h-4 w-4 -mr-2 pointer-events-none"
-        />
-        <x-filament::icon
-            icon="heroicon-m-ellipsis-vertical"
-            class="h-4 w-4 pointer-events-none"
-        />
+        {{-- Regular drag handle icons --}}
+        <span class="tree-drag-icons" x-show="!isProcessing">
+            <x-filament::icon
+                icon="heroicon-m-ellipsis-vertical"
+                class="h-4 w-4 -mr-2 pointer-events-none inline-block"
+            />
+            <x-filament::icon
+                icon="heroicon-m-ellipsis-vertical"
+                class="h-4 w-4 pointer-events-none inline-block"
+            />
+        </span>
+        {{-- Loading spinner --}}
+        <svg x-show="isProcessing" x-cloak class="animate-spin h-4 w-4 text-primary-500" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+            <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+        </svg>
     </span>
 @else
 <div

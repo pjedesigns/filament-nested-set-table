@@ -2,6 +2,28 @@
 
 All notable changes to `filament-nested-set-table` will be documented in this file.
 
+## v1.1.0 - 2026-01-21
+
+### Added
+- **OrderPage** - New dedicated page class for focused tree reordering
+  - Loads all nodes at once (no lazy loading delays)
+  - Pure JavaScript expand/collapse (no server round-trips)
+  - Server calls only on move operations
+  - Built-in Expand All / Collapse All buttons
+  - Built-in Fix Tree action
+  - Undo support with configurable timeout
+- `getScopeFilter()` method for filtering OrderPage by scope attributes
+- `getEagerLoading()` method for OrderPage relationship eager loading
+- New translation keys for OrderPage UI elements
+- CSS styles for OrderPage components
+- Feature tests for OrderPage functionality
+- Comprehensive README documentation with comparison table
+
+### Enhanced
+- `InteractsWithTree` trait now includes `canBeDragged()` and `canHaveChildren()` methods
+- `NodeMoveFailed` event now uses named parameters for clarity
+- Dark mode support improved for OrderPage components
+
 ## v1.0.1 - 2026-01-20
 
 ### Enhanced

@@ -1,5 +1,6 @@
 {
     "name": "pjedesigns/filament-nested-set-table",
+    "version": "1.1.0",
     "description": "A Filament table component for displaying and managing nested set data structures with drag-and-drop reordering support.",
     "keywords": [
         "pjedesigns",

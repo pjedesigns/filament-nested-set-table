@@ -229,3 +229,79 @@ tr.tree-row-hidden {
 .tree-expand-toggle svg {
     transition: transform 150ms;
 }
+
+/* =========================================
+   OrderPage Styles
+   ========================================= */
+
+/* Order Tree Node */
+.order-tree-node {
+    position: relative;
+    transition: background-color 150ms, opacity 150ms;
+}
+
+.order-tree-node-dragging {
+    opacity: 0.3;
+    background: repeating-linear-gradient(
+        45deg,
+        transparent,
+        transparent 5px,
+        rgba(0, 0, 0, 0.03) 5px,
+        rgba(0, 0, 0, 0.03) 10px
+    );
+}
+
+.dark .order-tree-node-dragging {
+    background: repeating-linear-gradient(
+        45deg,
+        transparent,
+        transparent 5px,
+        rgba(255, 255, 255, 0.03) 5px,
+        rgba(255, 255, 255, 0.03) 10px
+    );
+}
+
+/* Order Tree Drag Handle */
+.order-tree-drag-handle {
+    touch-action: none;
+}
+
+.order-tree-drag-handle:active {
+    cursor: grabbing;
+}
+
+/* Floating clone styles */
+#order-tree-drag-clone {
+    box-shadow: 0 10px 40px rgba(0, 0, 0, 0.2), 0 4px 12px rgba(0, 0, 0, 0.1) !important;
+    border-radius: 8px !important;
+    transform: rotate(1deg) !important;
+}
+
+.dark #order-tree-drag-clone {
+    background: rgb(31 41 55) !important;
+}
+
+/* Undo banner animation */
+@keyframes order-tree-undo-slide-in {
+    from {
+        transform: translateX(-50%) translateY(100%);
+        opacity: 0;
+    }
+    to {
+        transform: translateX(-50%) translateY(0);
+        opacity: 1;
+    }
+}
+
+/* Touch-friendly tap targets */
+@media (pointer: coarse) {
+    .order-tree-node {
+        min-height: 48px;
+    }
+
+    .order-tree-drag-handle,
+    .order-tree-node button {
+        min-width: 44px;
+        min-height: 44px;
+    }
+}

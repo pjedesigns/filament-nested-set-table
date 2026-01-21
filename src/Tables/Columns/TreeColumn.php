@@ -23,6 +23,9 @@ class TreeColumn extends TextColumn
 
         $this->indentSize(config('filament-nested-set-table.indent_size', 24));
         $this->draggable(config('filament-nested-set-table.drag_enabled', true));
+
+        // Enable HTML rendering for the custom view
+        $this->html();
     }
 
     public function indentSize(int|Closure $pixels): static

@@ -9,16 +9,17 @@ A Filament 4 table component for displaying and managing nested set data structu
 
 ## Features
 
-- **Preserves Standard Filament Tables**: Uses standard Filament table rows with columns, filters, and actions
+- **Two Display Modes**: Standard Filament table with tree features OR dedicated ordering page
 - **Drag-and-Drop Reordering**: Intuitive touch-friendly drag-and-drop with visual drop zones
 - **Nested Set Integration**: Works seamlessly with `kalnoy/nestedset` package
 - **Expand/Collapse**: Toggle visibility of child nodes with session persistence
-- **Lazy Loading**: Only loads visible nodes for better performance with large trees
+- **Lazy Loading**: Only loads visible nodes for better performance with large trees (HasTree)
 - **Eager Loading Support**: Configure relationships to eager load with tree queries
 - **Smart Pagination**: Pagination counts root nodes only, children are loaded on expand
 - **Scoped Trees**: Supports scoped nested sets (e.g., navigation items by navigation_id)
 - **Authorization**: Integrates with model policies for move permission checks
 - **Undo Support**: Temporary undo button for accidental moves
+- **Dark Mode**: Full Filament dark mode support
 
 ## Requirements
 
@@ -41,7 +42,23 @@ Publish the config file (optional):
 php artisan vendor:publish --tag="filament-nested-set-table-config"
 ```
 
-## Usage
+## Usage Options
+
+This package provides two ways to display and manage nested set data:
+
+| Feature | HasTree (Table) | OrderPage (Dedicated) |
+|---------|-----------------|----------------------|
+| Use case | Full CRUD with tree | Focused reordering |
+| Loading | Lazy (on expand) | All at once |
+| Expand/Collapse | Server call | Pure JavaScript |
+| Columns/Actions | Full Filament support | Label only |
+| Best for | Data management | Quick reordering |
+
+---
+
+## Option 1: HasTree Trait (Table Integration)
+
+Best for: Full CRUD functionality with tree visualization in standard Filament tables.
 
 ### 1. Prepare Your Model
 
@@ -73,6 +90,18 @@ class Category extends Model
     public function getTreeIcon(): ?string
     {
         return 'heroicon-o-folder';
+    }
+
+    // Optional: control if node can be dragged
+    public function canBeDragged(): bool
+    {
+        return true;
+    }
+
+    // Optional: control if node can have children
+    public function canHaveChildren(): bool
+    {
+        return true;
     }
 }
 ```
@@ -156,7 +185,122 @@ class CategoryResource extends Resource
 
 **Note:** The `HasTree` trait automatically handles query modifications (`withDepth`, `withCount('children')`, lazy loading). Do not add `modifyQueryUsing` for these - use `getTreeWith()` for eager loading relationships instead.
 
-### 4. Authorization (Optional)
+---
+
+## Option 2: OrderPage (Dedicated Ordering Page)
+
+Best for: Focused, fast reordering experience with minimal server calls.
+
+The `OrderPage` is a dedicated Filament page optimized for tree reordering:
+- Loads all nodes at once (no lazy loading delays)
+- Expand/collapse is pure JavaScript (no server calls)
+- Server calls only when you drop a node
+- Built-in Expand All / Collapse All buttons
+- Built-in Fix Tree action
+
+### Order Page Features
+
+The Order Page provides a streamlined UI with:
+- **Header buttons**: Expand All, Collapse All, Fix Tree, Back to List
+- **Undo support**: After moving a node, an Undo button appears in the success notification
+- **Conditional description**: Shows appropriate help text based on max depth setting
+- **Visual drop zones**: Blue indicators show where items will be placed
+
+### 1. Create Your Order Page
+
+Create a page class that extends `OrderPage` and links it to your resource:
+
+```php
+<?php
+
+namespace App\Filament\Resources\CategoryResource\Pages;
+
+use App\Filament\Resources\CategoryResource;
+use Pjedesigns\FilamentNestedSetTable\Pages\OrderPage;
+
+class OrderCategories extends OrderPage
+{
+    // Link to your resource - model is automatically resolved
+    protected static string $resource = CategoryResource::class;
+
+    // Optional: override the page title (default: "Order {PluralModelLabel}")
+    // protected static ?string $title = 'Order Categories';
+
+    // Optional: customize the label column (default: 'title')
+    public function getLabelColumn(): string
+    {
+        return 'name';
+    }
+
+    // Optional: set max depth (default: from config, 0 = unlimited)
+    // When set to 1, only reordering is allowed (no nesting)
+    public function getMaxDepth(): int
+    {
+        return 5;
+    }
+
+    // Optional: customize indent size (default: from config)
+    public function getIndentSize(): int
+    {
+        return 24;
+    }
+
+    // Optional: eager load relationships
+    public function getEagerLoading(): array
+    {
+        return ['media'];
+    }
+
+    // Optional: filter by scope (for scoped nested sets)
+    public function getScopeFilter(): array
+    {
+        return ['navigation_id' => 1];
+    }
+
+    // Optional: disable drag and drop
+    public function isDragEnabled(): bool
+    {
+        return true;
+    }
+}
+```
+
+### 2. Register the Page
+
+Add it to your Resource's pages array:
+
+```php
+// In your Resource class
+public static function getPages(): array
+{
+    return [
+        'index' => Pages\ListCategories::route('/'),
+        'create' => Pages\CreateCategory::route('/create'),
+        'edit' => Pages\EditCategory::route('/{record}/edit'),
+        'order' => Pages\OrderCategories::route('/order'), // Add ordering page
+    ];
+}
+```
+
+### 3. Link to Order Page from List Page
+
+```php
+// In your ListRecords page
+protected function getHeaderActions(): array
+{
+    return [
+        Action::make('order')
+            ->label('Reorder')
+            ->icon('heroicon-o-bars-arrow-down')
+            ->url(OrderCategories::getUrl()),
+        // ... other actions
+    ];
+}
+```
+
+---
+
+## Authorization
 
 Add a `reorder` method to your model's policy:
 
@@ -177,6 +321,10 @@ class CategoryPolicy
 }
 ```
 
+If no `reorder` method exists, the package falls back to checking `update` permission.
+
+---
+
 ## Configuration
 
 ```php
@@ -196,8 +344,7 @@ return [
     'remember_expanded_state' => true,
 
     // Expand all nodes by default on first visit
-    // Note: If user collapses nodes, their preference is remembered
-    'default_expanded' => true,
+    'default_expanded' => false,
 
     // Undo duration in seconds
     'undo_duration' => 10,
@@ -209,6 +356,8 @@ return [
     'touch_delay' => 150,
 ];
 ```
+
+---
 
 ## TreeColumn Options
 
@@ -223,6 +372,8 @@ TreeColumn::make('title')
     ->searchable()              // Make searchable (inherited)
     ->sortable();               // Make sortable (inherited)
 ```
+
+---
 
 ## HasTree Trait Methods
 
@@ -241,21 +392,105 @@ $this->clearExpandedState();    // Clear session state
 
 // Configuration
 $this->getTreeWith();           // Override to specify eager loading
-$this->getMaxDepth();           // Get max depth setting
+$this->getMaxDepth();           // Override to set custom max depth
 ```
+
+### Overriding Max Depth Per Page
+
+You can override the maximum tree depth for a specific ListRecords page by overriding the `getMaxDepth()` method:
+
+```php
+class ListCategories extends ListRecords
+{
+    use HasTree;
+
+    protected static string $resource = CategoryResource::class;
+
+    // Override max depth for this specific page (0 = unlimited)
+    public function getMaxDepth(): int
+    {
+        return 5; // Limit to 5 levels for this page only
+    }
+}
+```
+
+This overrides the global config value (`filament-nested-set-table.max_depth`) for this specific page.
+
+---
+
+## InteractsWithTree Trait Methods
+
+Add this trait to your model for additional customization:
+
+```php
+use Pjedesigns\FilamentNestedSetTable\Concerns\InteractsWithTree;
+
+class Category extends Model
+{
+    use NodeTrait;
+    use InteractsWithTree;
+
+    // Get the label for tree display
+    public function getTreeLabel(): string
+    {
+        return $this->getAttribute($this->getTreeLabelColumn());
+    }
+
+    // Column used for tree label (default: 'title')
+    public function getTreeLabelColumn(): string
+    {
+        return 'title';
+    }
+
+    // Icon for this node (default: 'heroicon-o-folder')
+    public function getTreeIcon(): ?string
+    {
+        return 'heroicon-o-folder';
+    }
+
+    // Can this node have children? (default: true)
+    public function canHaveChildren(): bool
+    {
+        return true;
+    }
+
+    // Can this node be dragged? (default: true)
+    public function canBeDragged(): bool
+    {
+        return true;
+    }
+
+    // Max depth for this tree (default: from config)
+    public function getMaxTreeDepth(): int
+    {
+        return config('filament-nested-set-table.max_depth', 0);
+    }
+}
+```
+
+---
 
 ## Eager Loading Relationships
 
-To eager load relationships with tree queries, override the `getTreeWith()` method in your ListRecords page:
+To eager load relationships with tree queries, override the `getTreeWith()` method (HasTree) or `getEagerLoading()` method (OrderPage):
 
 ```php
+// HasTree (ListRecords page)
 protected function getTreeWith(): array
+{
+    return ['media', 'author', 'tags'];
+}
+
+// OrderPage
+public function getEagerLoading(): array
 {
     return ['media', 'author', 'tags'];
 }
 ```
 
 This ensures relationships are loaded efficiently when fetching tree nodes, preventing N+1 query issues.
+
+---
 
 ## Scoped Trees
 
@@ -276,19 +511,83 @@ class NavigationItem extends Model
 
 The package will automatically prevent moving nodes between different scopes.
 
+For OrderPage, you can filter by scope:
+
+```php
+public function getScopeFilter(): array
+{
+    return ['navigation_id' => $this->navigationId];
+}
+```
+
+---
+
 ## Events
 
 The package dispatches the following events:
 
-- `NodeMoved` - When a node is successfully moved
-- `NodeMoveFailed` - When a move operation fails
-- `TreeFixed` - When tree structure is repaired
+| Event | Description | Properties |
+|-------|-------------|------------|
+| `NodeMoved` | Node successfully moved | `$node`, `$result`, `$previousParentId`, `$previousPosition` |
+| `NodeMoveFailed` | Move operation failed | `$node`, `$error`, `$attemptedParentId`, `$attemptedPosition` |
+| `TreeFixed` | Tree structure repaired | `$modelClass`, `$nodesFixed`, `$scopeAttributes` |
+
+### Listening to Events
+
+```php
+// In EventServiceProvider or a listener
+use Pjedesigns\FilamentNestedSetTable\Events\NodeMoved;
+
+Event::listen(NodeMoved::class, function (NodeMoved $event) {
+    // Log the move
+    activity()
+        ->performedOn($event->node)
+        ->log('Node moved');
+});
+```
+
+---
+
+## Translations
+
+The package includes English translations. Publish them to customize:
+
+```bash
+php artisan vendor:publish --tag="filament-nested-set-table-translations"
+```
+
+Available translation keys:
+
+```php
+return [
+    'move_success' => 'Item moved successfully.',
+    'move_failed' => 'Failed to move item.',
+    'undo_success' => 'Move undone successfully.',
+    'item_moved' => 'Item moved',
+    'unauthorized' => 'You are not authorized to move this item.',
+    'circular_reference' => 'Cannot move an item under its own descendant.',
+    'max_depth_exceeded' => 'Cannot move here: would exceed maximum depth of :max levels.',
+    'expand_all' => 'Expand All',
+    'collapse_all' => 'Collapse All',
+    'fix_tree' => 'Fix Tree',
+    'undo' => 'Undo',
+    'back_to_list' => 'Back to :resource',
+    'tree_structure' => 'Order Tree',
+    'tree_description' => 'Drag and drop items to reorder. Drop on an item to make it a child.',
+    'tree_description_flat' => 'Drag and drop items to reorder.',
+    // ... and more
+];
+```
+
+---
 
 ## Testing
 
 ```bash
 composer test
 ```
+
+---
 
 ## Changelog
 
