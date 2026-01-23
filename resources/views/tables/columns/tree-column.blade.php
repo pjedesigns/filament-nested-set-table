@@ -10,9 +10,13 @@
     $depth = $record->depth ?? 0;
 
     // Access the Livewire component via the column to check expanded state
-    $livewire = $column->getLivewire();
-    $isExpanded = method_exists($livewire, 'isNodeExpanded') ? $livewire->isNodeExpanded($nodeId) : false;
-    $resource = method_exists($livewire, 'getResource') ? $livewire::getResource() : null;
+    try {
+        $livewire = $column->getLivewire();
+    } catch (\LogicException $e) {
+        $livewire = null;
+    }
+    $isExpanded = $livewire && method_exists($livewire, 'isNodeExpanded') ? $livewire->isNodeExpanded($nodeId) : false;
+    $resource = $livewire && method_exists(get_class($livewire), 'getResource') ? $livewire::getResource() : null;
 
     $viewUrl = $resource
         ? $resource::getUrl('view', ['record' => $record])
