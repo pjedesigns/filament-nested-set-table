@@ -12,6 +12,11 @@
     // Access the Livewire component via the column to check expanded state
     $livewire = $column->getLivewire();
     $isExpanded = method_exists($livewire, 'isNodeExpanded') ? $livewire->isNodeExpanded($nodeId) : false;
+    $resource = method_exists($livewire, 'getResource') ? $livewire::getResource() : null;
+
+    $viewUrl = $resource
+        ? $resource::getUrl('view', ['record' => $record])
+        : null;
 
     // Get the formatted state for display
     $formattedState = $formatState($state);
@@ -364,8 +369,18 @@
 
     {{-- Content --}}
     <div class="tree-content min-w-0 flex-1">
-        <span class="fi-ta-text-item text-sm text-gray-950 dark:text-white">
-            {{ $formattedState }}
-        </span>
+        @if ($viewUrl)
+            <a
+                href="{{ $viewUrl }}"
+                class="fi-ta-text-item text-sm text-gray-950 dark:text-white hover:underline"
+                wire:navigate
+            >
+                {{ $formattedState }}
+            </a>
+        @else
+            <span class="fi-ta-text-item text-sm text-gray-950 dark:text-white">
+                {{ $formattedState }}
+            </span>
+        @endif
     </div>
 </div>
