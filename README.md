@@ -5,7 +5,7 @@
 [![GitHub Code Style Action Status](https://img.shields.io/github/actions/workflow/status/pjedesigns/filament-nested-set-table/fix-php-code-style-issues.yml?branch=main&label=code%20style&style=flat-square)](https://github.com/pjedesigns/filament-nested-set-table/actions?query=workflow%3A"Fix+PHP+code+style+issues"+branch%3Amain)
 [![Total Downloads](https://img.shields.io/packagist/dt/pjedesigns/filament-nested-set-table.svg?style=flat-square)](https://packagist.org/packages/pjedesigns/filament-nested-set-table)
 
-A Filament 4 table component for displaying and managing nested set data structures with drag-and-drop reordering support. Built for use with [kalnoy/nestedset](https://github.com/lazychaser/laravel-nestedset).
+A Filament table component for displaying and managing nested set data structures with drag-and-drop reordering support. Works with Filament v4/v5. Built for use with [kalnoy/nestedset](https://github.com/lazychaser/laravel-nestedset).
 
 ## Features
 
@@ -26,7 +26,7 @@ A Filament 4 table component for displaying and managing nested set data structu
 
 - PHP 8.4+
 - Laravel 12+
-- Filament 4.0+
+- Filament v4/v5
 - kalnoy/nestedset 6.0+
 
 ## Installation

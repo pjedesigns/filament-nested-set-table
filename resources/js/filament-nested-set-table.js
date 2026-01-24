@@ -281,9 +281,9 @@ export default function filamentNestedSetTable(config = {}) {
                 this.initialized = true;
             });
 
-            // Re-initialize after Livewire updates
-            Livewire.hook('commit', ({ succeed }) => {
-                succeed(() => {
+            // Re-initialize after Livewire updates (Livewire v4 syntax)
+            Livewire.interceptMessage(({ onSuccess }) => {
+                onSuccess(() => {
                     this.$nextTick(() => {
                         this.initializeSortable();
                     });
