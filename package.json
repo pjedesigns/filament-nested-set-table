@@ -4,8 +4,9 @@
     "private": true,
     "type": "module",
     "scripts": {
+        "clean": "node -e \"const fs=require('fs');const path='resources/dist';fs.readdirSync(path).filter(f=>f!=='.gitkeep').forEach(f=>fs.unlinkSync(path+'/'+f))\"",
         "dev": "vite build --watch",
-        "build": "npm run build:js && npm run build:css",
+        "build": "npm run clean && npm run build:js && npm run build:css",
         "build:js": "vite build",
         "build:css": "node -e \"require('fs').copyFileSync('resources/css/filament-nested-set-table.css', 'resources/dist/filament-nested-set-table.css')\""
     },
