@@ -784,6 +784,84 @@ trait HasTree
     }
 
     /**
+     * Whether the "Save Alphabetically" button should be shown.
+     * Override this method in your ListRecords class to enable.
+     */
+    public function shouldShowAlphabeticalButton(): bool
+    {
+        return false;
+    }
+
+    /**
+     * Get the fields to order alphabetically by.
+     * Override in extending classes to customize.
+     */
+    public function getAlphabeticalOrderField(): array
+    {
+        return ['title'];
+    }
+
+    /**
+     * Reorder all records alphabetically within each parent group.
+     */
+    public function saveAlphabetically(): void
+    {
+        $model = $this->getModel();
+        $orderFields = $this->getAlphabeticalOrderField();
+
+        try {
+            $allNodes = $model::query()->defaultOrder()->get();
+
+            // Group nodes by parent_id
+            $grouped = $allNodes->groupBy(fn (Model $node) => $node->parent_id ?? 'root');
+
+            foreach ($grouped as $nodes) {
+                // Sort the group alphabetically by the configured fields
+                $sorted = $nodes->sort(function (Model $a, Model $b) use ($orderFields) {
+                    foreach ($orderFields as $field) {
+                        $comparison = strnatcasecmp(
+                            (string) $a->getAttribute($field),
+                            (string) $b->getAttribute($field)
+                        );
+
+                        if ($comparison !== 0) {
+                            return $comparison;
+                        }
+                    }
+
+                    return 0;
+                })->values();
+
+                // Reposition nodes in the sorted order
+                foreach ($sorted as $index => $node) {
+                    if ($index === 0) {
+                        continue;
+                    }
+
+                    $previousNode = $sorted->get($index - 1);
+                    $node->insertAfterNode($previousNode);
+                }
+            }
+
+            $model::fixTree();
+
+            Notification::make()
+                ->title(__('filament-nested-set-table::messages.alphabetical_success'))
+                ->success()
+                ->send();
+
+            $this->dispatch('tree-updated');
+            $this->js('window.dispatchEvent(new CustomEvent("tree-updated"))');
+        } catch (\Throwable $e) {
+            Notification::make()
+                ->title(__('filament-nested-set-table::messages.alphabetical_failed'))
+                ->body($e->getMessage())
+                ->danger()
+                ->send();
+        }
+    }
+
+    /**
      * Send a failure notification for a move operation.
      */
     protected function notifyMoveFailed(string $message): void

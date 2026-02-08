@@ -43,6 +43,12 @@ return [
     'tree_description' => 'Drag and drop items to reorder. Drop on an item to make it a child.',
     'tree_description_flat' => 'Drag and drop items to reorder.',
 
+    // Alphabetical ordering
+    'save_alphabetically' => 'Save Alphabetically',
+    'alphabetical_confirm' => 'This will reorder all items alphabetically within each level. Are you sure?',
+    'alphabetical_success' => 'Items reordered alphabetically.',
+    'alphabetical_failed' => 'Failed to reorder items alphabetically.',
+
     // Loading states
     'processing' => 'Processing...',
     'moving' => 'Moving item...',

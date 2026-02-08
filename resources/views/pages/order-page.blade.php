@@ -2,11 +2,23 @@
     $nodes = $this->nodes;
     $indentSize = $this->getIndentSize();
     $dragEnabled = $this->isDragEnabled();
-    $indexUrl = $this->getBackUrl();
-    $resourceLabel = static::getResource()::getPluralModelLabel();
 @endphp
 
 <x-filament-panels::page>
+    <style>
+        .order-tree-section > .fi-section-header {
+            flex-wrap: wrap;
+        }
+        .order-tree-section > .fi-section-header > .fi-section-header-after-ctn {
+            flex-basis: auto;
+        }
+        @media (max-width: 640px) {
+            .order-tree-section > .fi-section-header > .fi-section-header-text-ctn {
+                flex-basis: 100%;
+            }
+        }
+    </style>
+
     <div
         x-data="orderTree({
             nodes: @js($nodes),
@@ -17,7 +29,7 @@
         wire:loading.class="opacity-50 pointer-events-none"
         class="transition-opacity duration-200"
     >
-        <x-filament::section>
+        <x-filament::section class="order-tree-section">
             <x-slot name="heading">
                 {{ __('filament-nested-set-table::messages.tree_structure') }}
             </x-slot>
@@ -37,6 +49,8 @@
                         icon="heroicon-o-chevron-double-down"
                         color="gray"
                         size="sm"
+                        labeled-from="sm"
+                        :tooltip="__('filament-nested-set-table::messages.expand_all')"
                     >
                         {{ __('filament-nested-set-table::messages.expand_all') }}
                     </x-filament::button>
@@ -46,33 +60,16 @@
                         icon="heroicon-o-chevron-double-up"
                         color="gray"
                         size="sm"
+                        labeled-from="sm"
+                        :tooltip="__('filament-nested-set-table::messages.collapse_all')"
                     >
                         {{ __('filament-nested-set-table::messages.collapse_all') }}
-                    </x-filament::button>
-
-                    <x-filament::button
-                        wire:click="fixTree"
-                        icon="heroicon-o-wrench-screwdriver"
-                        color="warning"
-                        size="sm"
-                    >
-                        {{ __('filament-nested-set-table::messages.fix_tree') }}
-                    </x-filament::button>
-
-                    <x-filament::button
-                        :href="$indexUrl"
-                        tag="a"
-                        icon="heroicon-o-arrow-left"
-                        color="gray"
-                        size="sm"
-                    >
-                        {{ __('filament-nested-set-table::messages.back_to_list', ['resource' => $resourceLabel]) }}
                     </x-filament::button>
                 </div>
             </x-slot>
 
             {{-- Tree Container - matches Filament table styling --}}
-            <div class="fi-ta-content rounded-lg bg-white border border-gray-200 dark:bg-gray-900 dark:border-white/10 -mx-6 -mb-6 mt-2">
+            <div class="fi-ta-content rounded-lg bg-white border border-gray-200 dark:bg-gray-900 dark:border-white/10 mt-2">
                 {{-- Empty State --}}
                 <template x-if="nodes.length === 0">
                     <div class="px-6 py-12 text-center">
@@ -97,7 +94,7 @@
                         >
                             {{-- Node Row --}}
                             <div
-                                class="order-tree-node group relative flex items-center gap-2 px-4 py-3 transition-all duration-200 hover:bg-gray-50 dark:hover:bg-white/5"
+                                class="order-tree-node group relative flex items-center gap-2 px-3 py-2 transition-all duration-200 hover:bg-gray-50 dark:hover:bg-white/5"
                                 :class="{
                                     'opacity-30': isDragging && draggedNode?.id === node.id,
                                     'opacity-50 pointer-events-none': isProcessing && processingNodeId === node.id,
@@ -131,7 +128,7 @@
                                     </span>
                                 </template>
                                 <template x-if="!node.can_drag">
-                                    <span class="w-6 shrink-0"></span>
+                                    <span class="w-3 md:w-6 shrink-0"></span>
                                 </template>
                                 @endif
 
@@ -155,7 +152,7 @@
                                     </button>
                                 </template>
                                 <template x-if="!node.has_children">
-                                    <span class="w-6 shrink-0"></span>
+                                    <span class="w-3 md:w-6 shrink-0"></span>
                                 </template>
 
                                 {{-- Label --}}

@@ -19,6 +19,7 @@ A Filament table component for displaying and managing nested set data structure
 - **Smart Pagination**: Pagination counts root nodes only, children are loaded on expand
 - **Scoped Trees**: Supports scoped nested sets (e.g., navigation items by navigation_id)
 - **Authorization**: Integrates with model policies for move permission checks
+- **Alphabetical Ordering**: One-click alphabetical sort with multi-field support
 - **Undo Support**: Temporary undo button for accidental moves
 - **Dark Mode**: Full Filament dark mode support
 
@@ -202,7 +203,7 @@ The `OrderPage` is a dedicated Filament page optimized for tree reordering:
 ### Order Page Features
 
 The Order Page provides a streamlined UI with:
-- **Header buttons**: Expand All, Collapse All, Fix Tree, Back to List
+- **Header buttons**: Expand All, Collapse All, Fix Tree, Save Alphabetically (optional), Back to List
 - **Undo support**: After moving a node, an Undo button appears in the success notification
 - **Conditional description**: Shows appropriate help text based on max depth setting
 - **Visual drop zones**: Blue indicators show where items will be placed
@@ -641,6 +642,108 @@ public function getScopeFilter(): array
 
 ---
 
+## Alphabetical Ordering
+
+Both the `OrderPage` and `HasTree` trait support a one-click alphabetical reorder feature. When enabled, a "Save Alphabetically" button appears in the header that reorders all nodes alphabetically within each parent group (preserving the tree hierarchy).
+
+### OrderPage
+
+```php
+use Pjedesigns\FilamentNestedSetTable\Pages\OrderPage;
+
+class OrderCategories extends OrderPage
+{
+    protected static string $resource = CategoryResource::class;
+
+    // Enable the alphabetical ordering button
+    public function shouldShowAlphabeticalButton(): bool
+    {
+        return true;
+    }
+
+    // Optional: customize which fields to sort by (default: ['title'])
+    public function getAlphabeticalOrderField(): array
+    {
+        return ['title'];
+    }
+}
+```
+
+### HasTree (ListRecords)
+
+```php
+use Pjedesigns\FilamentNestedSetTable\Concerns\HasTree;
+
+class ListCategories extends ListRecords
+{
+    use HasTree;
+
+    protected static string $resource = CategoryResource::class;
+
+    // Enable the alphabetical ordering button
+    public function shouldShowAlphabeticalButton(): bool
+    {
+        return true;
+    }
+
+    // Optional: customize which fields to sort by (default: ['title'])
+    public function getAlphabeticalOrderField(): array
+    {
+        return ['title'];
+    }
+
+    protected function getHeaderActions(): array
+    {
+        return [
+            // Add the alphabetical button as a header action
+            Action::make('saveAlphabetically')
+                ->label(__('filament-nested-set-table::messages.save_alphabetically'))
+                ->icon('heroicon-o-bars-arrow-down')
+                ->color('info')
+                ->requiresConfirmation()
+                ->action(fn () => $this->saveAlphabetically()),
+            // ... other actions
+        ];
+    }
+}
+```
+
+### Multi-Field Sorting
+
+You can sort by multiple fields. The sort compares each field in order, moving to the next field only when values are equal:
+
+```php
+class OrderPeople extends OrderPage
+{
+    protected static string $resource = PersonResource::class;
+
+    public function shouldShowAlphabeticalButton(): bool
+    {
+        return true;
+    }
+
+    // Sort by last name first, then first name
+    public function getAlphabeticalOrderField(): array
+    {
+        return [
+            'first_name',
+            'last_name',
+        ];
+    }
+}
+```
+
+### How It Works
+
+- Groups all nodes by their `parent_id` (preserving the tree structure)
+- Sorts nodes alphabetically within each group using natural case-insensitive comparison (`strnatcasecmp`)
+- Repositions nodes using kalnoy's `insertAfterNode()` method
+- Calls `fixTree()` to ensure `_lft`/`_rgt` values are consistent
+- Shows a confirmation dialog before reordering
+- Displays a loading state while processing
+
+---
+
 ## Nested Resources (Child Resources)
 
 The `OrderPage` fully supports Filament's nested resources. When using a child resource (a resource that has a `$parentResource` property), the package automatically handles parent record resolution.
@@ -779,6 +882,10 @@ return [
     'tree_structure' => 'Order Tree',
     'tree_description' => 'Drag and drop items to reorder. Drop on an item to make it a child.',
     'tree_description_flat' => 'Drag and drop items to reorder.',
+    'save_alphabetically' => 'Save Alphabetically',
+    'alphabetical_confirm' => 'This will reorder all items alphabetically within each level. Are you sure?',
+    'alphabetical_success' => 'Items reordered alphabetically.',
+    'alphabetical_failed' => 'Failed to reorder items alphabetically.',
     // ... and more
 ];
 ```

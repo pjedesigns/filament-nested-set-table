@@ -498,6 +498,120 @@ abstract class OrderPage extends Page
     }
 
     /**
+     * Whether the "Save Alphabetically" button should be shown.
+     * Override this method in your page class to enable.
+     */
+    public function shouldShowAlphabeticalButton(): bool
+    {
+        return false;
+    }
+
+    /**
+     * Get the header actions for the page.
+     */
+    protected function getHeaderActions(): array
+    {
+        $resourceLabel = Str::headline(static::getResource()::getPluralModelLabel());
+
+        return array_filter([
+            $this->shouldShowAlphabeticalButton()
+                ? Action::make('saveAlphabetically')
+                    ->label(__('filament-nested-set-table::messages.save_alphabetically'))
+                    ->icon('heroicon-o-bars-arrow-down')
+                    ->color('info')
+                    ->requiresConfirmation()
+                    ->modalHeading(__('filament-nested-set-table::messages.save_alphabetically'))
+                    ->modalDescription(__('filament-nested-set-table::messages.alphabetical_confirm'))
+                    ->modalSubmitActionLabel(__('filament-nested-set-table::messages.save_alphabetically'))
+                    ->action(fn () => $this->saveAlphabetically())
+                : null,
+
+            Action::make('fixTree')
+                ->label(__('filament-nested-set-table::messages.fix_tree'))
+                ->icon('heroicon-o-wrench-screwdriver')
+                ->color('warning')
+                ->requiresConfirmation()
+                ->modalHeading(__('filament-nested-set-table::messages.fix_tree'))
+                ->modalDescription(__('filament-nested-set-table::messages.fix_tree_tooltip'))
+                ->action(fn () => $this->fixTree()),
+
+            Action::make('backToList')
+                ->label(__('filament-nested-set-table::messages.back_to_list', ['resource' => $resourceLabel]))
+                ->icon('heroicon-o-arrow-left')
+                ->color('gray')
+                ->url($this->getBackUrl()),
+        ]);
+    }
+
+    /**
+     * Get the fields to order alphabetically by.
+     * Override in extending classes to customize.
+     */
+    public function getAlphabeticalOrderField(): array
+    {
+        return ['title'];
+    }
+
+    /**
+     * Reorder all records alphabetically within each parent group.
+     */
+    public function saveAlphabetically(): void
+    {
+        $model = $this->getModel();
+        $orderFields = $this->getAlphabeticalOrderField();
+        $scopeFilter = $this->getScopeFilter();
+
+        try {
+            $query = $model::query();
+
+            foreach ($scopeFilter as $column => $value) {
+                $query->where($column, $value);
+            }
+
+            $allNodes = $query->defaultOrder()->get();
+
+            // Group nodes by parent_id
+            $grouped = $allNodes->groupBy(fn (Model $node) => $node->parent_id ?? 'root');
+
+            foreach ($grouped as $nodes) {
+                // Sort the group alphabetically by the configured fields
+                $sorted = $nodes->sort(function (Model $a, Model $b) use ($orderFields) {
+                    foreach ($orderFields as $field) {
+                        $comparison = strnatcasecmp(
+                            (string) $a->getAttribute($field),
+                            (string) $b->getAttribute($field)
+                        );
+
+                        if ($comparison !== 0) {
+                            return $comparison;
+                        }
+                    }
+
+                    return 0;
+                })->values();
+
+                // Reposition nodes in the sorted order
+                foreach ($sorted as $index => $node) {
+                    if ($index === 0) {
+                        continue;
+                    }
+
+                    $previousNode = $sorted->get($index - 1);
+                    $node->insertAfterNode($previousNode);
+                }
+            }
+
+            // Fix tree to ensure lft/rgt values are clean
+            $model::fixTree();
+
+            $this->notifySuccess(__('filament-nested-set-table::messages.alphabetical_success'));
+            $this->dispatch('tree-updated');
+        } catch (\Throwable $e) {
+            $this->notifyError($e->getMessage());
+        }
+    }
+
+    /**
      * Check if the user is authorized to move the given node.
      */
     protected function authorizeMove(Model $node): bool
