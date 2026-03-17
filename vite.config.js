@@ -18,7 +18,6 @@ export default defineConfig({
             },
         },
         sourcemap: true,
-        minify: 'esbuild',
     },
     resolve: {
         alias: {
