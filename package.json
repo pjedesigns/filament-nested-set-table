@@ -11,7 +11,7 @@
         "build:css": "node -e \"require('fs').copyFileSync('resources/css/filament-nested-set-table.css', 'resources/dist/filament-nested-set-table.css')\""
     },
     "devDependencies": {
-        "vite": "^7.3.1"
+        "vite": "^8.0.0"
     },
     "dependencies": {
         "sortablejs": "^1.15.6"

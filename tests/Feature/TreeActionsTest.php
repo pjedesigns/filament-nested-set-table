@@ -2,6 +2,9 @@
 
 declare(strict_types=1);
 
+use Filament\Actions\DeleteAction;
+use Filament\Actions\ForceDeleteAction;
+use Filament\Actions\RestoreAction;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Database\Schema\Blueprint;
@@ -82,7 +85,7 @@ it('TreeDeleteAction can be instantiated', function () {
 it('TreeDeleteAction extends DeleteAction', function () {
     $action = TreeDeleteAction::make();
 
-    expect($action)->toBeInstanceOf(\Filament\Actions\DeleteAction::class);
+    expect($action)->toBeInstanceOf(DeleteAction::class);
 });
 
 it('TreeDeleteAction getDescendantCount returns zero for leaf nodes', function () {
@@ -145,7 +148,7 @@ it('TreeForceDeleteAction can be instantiated', function () {
 it('TreeForceDeleteAction extends ForceDeleteAction', function () {
     $action = TreeForceDeleteAction::make();
 
-    expect($action)->toBeInstanceOf(\Filament\Actions\ForceDeleteAction::class);
+    expect($action)->toBeInstanceOf(ForceDeleteAction::class);
 });
 
 it('TreeForceDeleteAction getDescendantCount includes trashed descendants', function () {
@@ -205,7 +208,7 @@ it('TreeRestoreAction can be instantiated', function () {
 it('TreeRestoreAction extends RestoreAction', function () {
     $action = TreeRestoreAction::make();
 
-    expect($action)->toBeInstanceOf(\Filament\Actions\RestoreAction::class);
+    expect($action)->toBeInstanceOf(RestoreAction::class);
 });
 
 it('TreeRestoreAction getTrashedDescendantCount returns zero for non-trashed record', function () {

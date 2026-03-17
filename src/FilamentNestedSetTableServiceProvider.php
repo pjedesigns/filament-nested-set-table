@@ -3,6 +3,7 @@
 namespace Pjedesigns\FilamentNestedSetTable;
 
 use Filament\Support\Assets\AlpineComponent;
+use Filament\Support\Assets\Asset;
 use Filament\Support\Assets\Css;
 use Filament\Support\Facades\FilamentAsset;
 use Pjedesigns\FilamentNestedSetTable\Services\TreeMover;
@@ -38,7 +39,7 @@ class FilamentNestedSetTableServiceProvider extends PackageServiceProvider
     }
 
     /**
-     * @return array<\Filament\Support\Assets\Asset>
+     * @return array<Asset>
      */
     protected function getAssets(): array
     {

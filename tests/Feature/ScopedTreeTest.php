@@ -8,6 +8,7 @@ use Kalnoy\Nestedset\NodeTrait;
 use Pjedesigns\FilamentNestedSetTable\Concerns\HasTree;
 use Pjedesigns\FilamentNestedSetTable\Concerns\InteractsWithTree;
 use Pjedesigns\FilamentNestedSetTable\Events\NodeMoved;
+use Pjedesigns\FilamentNestedSetTable\Services\MoveResult;
 use Pjedesigns\FilamentNestedSetTable\Services\TreeMover;
 
 beforeEach(function () {
@@ -83,7 +84,7 @@ class ScopedTreeTestController
 
     protected function resetTable(): void {}
 
-    protected function notifyMoveSuccess(\Pjedesigns\FilamentNestedSetTable\Services\MoveResult $result): void
+    protected function notifyMoveSuccess(MoveResult $result): void
     {
         $this->notifications[] = ['type' => 'success', 'result' => $result];
     }

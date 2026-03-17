@@ -4,6 +4,7 @@ namespace Pjedesigns\FilamentNestedSetTable\Concerns;
 
 use Filament\Notifications\Notification;
 use Filament\Tables\Table;
+use Illuminate\Auth\Access\Response;
 use Illuminate\Contracts\Pagination\CursorPaginator;
 use Illuminate\Contracts\Pagination\Paginator;
 use Illuminate\Database\Eloquent\Builder;
@@ -704,14 +705,14 @@ trait HasTree
         if ($policy && method_exists($policy, 'reorder')) {
             $result = $policy->reorder(auth()->user(), $node);
 
-            return $result instanceof \Illuminate\Auth\Access\Response ? $result->allowed() : (bool) $result;
+            return $result instanceof Response ? $result->allowed() : (bool) $result;
         }
 
         // Default to checking update permission
         if ($policy && method_exists($policy, 'update')) {
             $result = $policy->update(auth()->user(), $node);
 
-            return $result instanceof \Illuminate\Auth\Access\Response ? $result->allowed() : (bool) $result;
+            return $result instanceof Response ? $result->allowed() : (bool) $result;
         }
 
         return true;

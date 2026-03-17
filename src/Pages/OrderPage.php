@@ -6,8 +6,10 @@ use Filament\Actions\Action;
 use Filament\Notifications\Notification;
 use Filament\Resources\Pages\Concerns\InteractsWithParentRecord;
 use Filament\Resources\Pages\Page;
+use Illuminate\Auth\Access\Response;
 use Illuminate\Contracts\Support\Htmlable;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Str;
 use Livewire\Attributes\Computed;
 use Livewire\Attributes\On;
@@ -155,7 +157,7 @@ abstract class OrderPage extends Page
     /**
      * Calculate depths manually for scoped trees where withDepth() returns -1.
      *
-     * @param  \Illuminate\Support\Collection  $nodes
+     * @param  Collection  $nodes
      * @return array<int, int> Map of node ID to depth
      */
     protected function calculateDepths($nodes): array
@@ -621,14 +623,14 @@ abstract class OrderPage extends Page
         if ($policy && method_exists($policy, 'reorder')) {
             $result = $policy->reorder(auth()->user(), $node);
 
-            return $result instanceof \Illuminate\Auth\Access\Response ? $result->allowed() : (bool) $result;
+            return $result instanceof Response ? $result->allowed() : (bool) $result;
         }
 
         // Default to checking update permission
         if ($policy && method_exists($policy, 'update')) {
             $result = $policy->update(auth()->user(), $node);
 
-            return $result instanceof \Illuminate\Auth\Access\Response ? $result->allowed() : (bool) $result;
+            return $result instanceof Response ? $result->allowed() : (bool) $result;
         }
 
         return true;

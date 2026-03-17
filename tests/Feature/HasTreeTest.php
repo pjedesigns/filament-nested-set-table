@@ -9,6 +9,8 @@ use Kalnoy\Nestedset\NodeTrait;
 use Pjedesigns\FilamentNestedSetTable\Concerns\HasTree;
 use Pjedesigns\FilamentNestedSetTable\Concerns\InteractsWithTree;
 use Pjedesigns\FilamentNestedSetTable\Events\NodeMoved;
+use Pjedesigns\FilamentNestedSetTable\Events\NodeMoveFailed;
+use Pjedesigns\FilamentNestedSetTable\Services\MoveResult;
 use Pjedesigns\FilamentNestedSetTable\Tables\Columns\TreeColumn;
 
 beforeEach(function () {
@@ -95,7 +97,7 @@ class HasTreeTestController
     }
 
     // Override notification methods to avoid Filament dependency
-    protected function notifyMoveSuccess(\Pjedesigns\FilamentNestedSetTable\Services\MoveResult $result): void
+    protected function notifyMoveSuccess(MoveResult $result): void
     {
         $this->notifications[] = ['type' => 'success', 'result' => $result];
     }
@@ -624,7 +626,7 @@ it('does not remember state when config is false', function () {
 
 it('saveAlphabetically reorders nodes alphabetically within parent groups', function () {
     // Create nodes in non-alphabetical order
-    Schema::create('alpha_sort_items', function (\Illuminate\Database\Schema\Blueprint $table) {
+    Schema::create('alpha_sort_items', function (Blueprint $table) {
         $table->id();
         $table->string('title');
         $table->unsignedBigInteger('_lft')->default(0);
@@ -720,7 +722,7 @@ it('undoLastMove does nothing when undo has expired', function () {
 // ============================================
 
 it('dispatches NodeMoveFailed event on circular reference', function () {
-    Event::fake([\Pjedesigns\FilamentNestedSetTable\Events\NodeMoveFailed::class]);
+    Event::fake([NodeMoveFailed::class]);
 
     $tree = createHasTreeTestData();
 

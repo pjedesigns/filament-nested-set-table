@@ -7,6 +7,7 @@ use Illuminate\Support\Facades\Schema;
 use Kalnoy\Nestedset\NodeTrait;
 use Pjedesigns\FilamentNestedSetTable\Concerns\HasTree;
 use Pjedesigns\FilamentNestedSetTable\Concerns\InteractsWithTree;
+use Pjedesigns\FilamentNestedSetTable\Services\MoveResult;
 
 beforeEach(function () {
     Schema::create('soft_delete_tree_items', function (Blueprint $table) {
@@ -72,7 +73,7 @@ class SoftDeleteTreeController
 
     protected function resetTable(): void {}
 
-    protected function notifyMoveSuccess(\Pjedesigns\FilamentNestedSetTable\Services\MoveResult $result): void
+    protected function notifyMoveSuccess(MoveResult $result): void
     {
         $this->notifications[] = ['type' => 'success', 'result' => $result];
     }

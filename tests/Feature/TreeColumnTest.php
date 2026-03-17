@@ -1,5 +1,6 @@
 <?php
 
+use Filament\Tables\Columns\TextColumn;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\Schema;
@@ -93,7 +94,7 @@ it('can be created with make method', function () {
 it('extends TextColumn', function () {
     $column = TreeColumn::make('title');
 
-    expect($column)->toBeInstanceOf(\Filament\Tables\Columns\TextColumn::class);
+    expect($column)->toBeInstanceOf(TextColumn::class);
 });
 
 it('has a custom view', function () {

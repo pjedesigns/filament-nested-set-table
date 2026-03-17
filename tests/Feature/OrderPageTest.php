@@ -13,6 +13,7 @@ use Pjedesigns\FilamentNestedSetTable\Events\NodeMoveFailed;
 use Pjedesigns\FilamentNestedSetTable\Events\TreeFixed;
 use Pjedesigns\FilamentNestedSetTable\Pages\OrderPage;
 use Pjedesigns\FilamentNestedSetTable\Services\MoveResult;
+use Pjedesigns\FilamentNestedSetTable\Services\TreeMover;
 
 beforeEach(function () {
     Schema::create('order_test_items', function (Blueprint $table) {
@@ -261,7 +262,7 @@ class TestableOrderPage
                 $result = MoveResult::success(newParentId: null, newPosition: 0);
                 event(new NodeMoved($node->fresh(), $result, $previousParentId, $previousPosition));
             }
-        } catch (\Throwable $e) {
+        } catch (Throwable $e) {
             event(new NodeMoveFailed(
                 node: $node,
                 error: $e->getMessage(),
@@ -326,7 +327,7 @@ class TestableOrderPage
                     }
                 }
             }
-        } catch (\Throwable $e) {
+        } catch (Throwable $e) {
             // Silently fail
         }
 
@@ -351,7 +352,7 @@ class TestableOrderPage
         try {
             $model::fixTree();
             event(new TreeFixed($model, 0));
-        } catch (\Throwable $e) {
+        } catch (Throwable $e) {
             // Silently fail
         }
     }
@@ -690,7 +691,7 @@ it('moves node to root via TreeMover service', function () {
 
     expect($child->fresh()->parent_id)->toBe($parent->id);
 
-    $mover = new \Pjedesigns\FilamentNestedSetTable\Services\TreeMover;
+    $mover = new TreeMover;
     $result = $mover->move($child->fresh(), null, 0);
 
     expect($result->success)->toBeTrue()
@@ -702,7 +703,7 @@ it('moves node to root via TreeMover service', function () {
 // ============================================
 
 it('prevents move as child when target cannot have children', function () {
-    Schema::create('no_children_items', function (\Illuminate\Database\Schema\Blueprint $table) {
+    Schema::create('no_children_items', function (Blueprint $table) {
         $table->id();
         $table->string('title');
         $table->unsignedBigInteger('_lft')->default(0);
@@ -796,7 +797,7 @@ it('saveAlphabetically reorders nodes alphabetically', function () {
 
             $allNodes = $model::query()->defaultOrder()->get();
 
-            $grouped = $allNodes->groupBy(fn (\Illuminate\Database\Eloquent\Model $node) => $node->parent_id ?? 'root');
+            $grouped = $allNodes->groupBy(fn (Model $node) => $node->parent_id ?? 'root');
 
             foreach ($grouped as $nodes) {
                 $sorted = $nodes->sort(function ($a, $b) use ($orderFields) {

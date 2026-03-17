@@ -2,6 +2,7 @@
 
 declare(strict_types=1);
 
+use Illuminate\Contracts\Broadcasting\ShouldBroadcast;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\Schema;
@@ -128,7 +129,7 @@ it('NodeMoved broadcastWith returns correct payload', function () {
 
 it('NodeMoved implements ShouldBroadcast', function () {
     expect(NodeMoved::class)
-        ->toImplement(\Illuminate\Contracts\Broadcasting\ShouldBroadcast::class);
+        ->toImplement(ShouldBroadcast::class);
 });
 
 it('NodeMoved handles null previous values', function () {
@@ -180,7 +181,7 @@ it('NodeMoveFailed handles null optional values', function () {
 it('NodeMoveFailed does not implement ShouldBroadcast', function () {
     $interfaces = class_implements(NodeMoveFailed::class);
 
-    expect($interfaces)->not->toContain(\Illuminate\Contracts\Broadcasting\ShouldBroadcast::class);
+    expect($interfaces)->not->toContain(ShouldBroadcast::class);
 });
 
 // ============================================
