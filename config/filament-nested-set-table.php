@@ -23,13 +23,18 @@ return [
 
     /*
     |--------------------------------------------------------------------------
-    | Max Depth (0 = unlimited)
+    | Max Depth
     |--------------------------------------------------------------------------
     |
-    | The maximum depth allowed for nested items. Set to 0 for unlimited.
+    | The maximum depth allowed for nested items. Depth is zero-indexed:
+    | root nodes are at depth 0, their children at depth 1, and so on.
+    |
+    | - null = unlimited nesting
+    | -    0 = root only (nesting disabled)
+    | -    N = allow up to N levels below root
     |
     */
-    'max_depth' => 0,
+    'max_depth' => null,
 
     /*
     |--------------------------------------------------------------------------

@@ -535,8 +535,8 @@ it('prevents move when max depth would be exceeded', function () {
     expect($tree['root2']->parent_id)->toBeNull();
 });
 
-it('allows move when max depth is 0 (unlimited)', function () {
-    config(['filament-nested-set-table.max_depth' => 0]);
+it('allows move when max depth is null (unlimited)', function () {
+    config(['filament-nested-set-table.max_depth' => null]);
 
     $tree = createHasTreeTestData();
 
@@ -547,6 +547,21 @@ it('allows move when max depth is 0 (unlimited)', function () {
 
     $tree['root2']->refresh();
     expect($tree['root2']->parent_id)->toBe($tree['grandchild1']->id);
+});
+
+it('prevents any nesting when max depth is 0 (root only)', function () {
+    config(['filament-nested-set-table.max_depth' => 0]);
+
+    $tree = createHasTreeTestData();
+
+    $controller = new HasTreeTestController;
+
+    // Attempt to make root2 a child of root1 - would put root2 at depth 1
+    $controller->handleNodeMoved($tree['root2']->id, $tree['root1']->id, false, true);
+
+    // Move should be rejected - root2 remains at root
+    $tree['root2']->refresh();
+    expect($tree['root2']->parent_id)->toBeNull();
 });
 
 // ============================================
@@ -790,5 +805,5 @@ it('static maxDepth sets the max depth after construction', function () {
     expect($controller->getMaxDepth())->toBe(7);
 
     // Reset for other tests
-    HasTreeTestController::maxDepth(0);
+    HasTreeTestController::maxDepth(null);
 });

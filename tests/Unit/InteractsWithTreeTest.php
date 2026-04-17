@@ -116,7 +116,15 @@ it('default getMaxTreeDepth reads from config', function () {
     expect($item->getMaxTreeDepth())->toBe(4);
 });
 
-it('default getMaxTreeDepth returns 0 when config not set', function () {
+it('default getMaxTreeDepth returns null when config is unlimited', function () {
+    config(['filament-nested-set-table.max_depth' => null]);
+
+    $item = new DefaultTraitTestItem;
+
+    expect($item->getMaxTreeDepth())->toBeNull();
+});
+
+it('default getMaxTreeDepth returns 0 when nesting disabled', function () {
     config(['filament-nested-set-table.max_depth' => 0]);
 
     $item = new DefaultTraitTestItem;

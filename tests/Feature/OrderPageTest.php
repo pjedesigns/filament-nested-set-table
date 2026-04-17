@@ -77,7 +77,7 @@ class TestableOrderPage
 {
     public ?array $lastMove = null;
 
-    protected int $maxDepth = 0;
+    protected ?int $maxDepth = null;
 
     protected int $indentSize = 24;
 
@@ -85,7 +85,7 @@ class TestableOrderPage
 
     public function __construct()
     {
-        $this->maxDepth = config('filament-nested-set-table.max_depth', 0);
+        $this->maxDepth = config('filament-nested-set-table.max_depth');
         $this->indentSize = config('filament-nested-set-table.indent_size', 24);
         $this->dragEnabled = config('filament-nested-set-table.drag_enabled', true);
     }
@@ -100,12 +100,12 @@ class TestableOrderPage
         return 'title';
     }
 
-    public function getMaxDepth(): int
+    public function getMaxDepth(): ?int
     {
         return $this->maxDepth;
     }
 
-    public function setMaxDepth(int $depth): void
+    public function setMaxDepth(?int $depth): void
     {
         $this->maxDepth = $depth;
     }
@@ -218,9 +218,9 @@ class TestableOrderPage
             }
         }
 
-        // Max depth check
+        // Max depth check (null = unlimited; 0 = root only)
         $maxDepth = $this->getMaxDepth();
-        if ($maxDepth > 0) {
+        if ($maxDepth !== null) {
             $targetDepth = $makeChild
                 ? (($targetNode->depth ?? 0) + 1)
                 : ($targetNode->depth ?? 0);

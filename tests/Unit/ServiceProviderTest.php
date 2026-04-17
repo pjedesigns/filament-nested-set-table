@@ -16,7 +16,7 @@ it('publishes config file', function () {
     expect(config('filament-nested-set-table'))->toBeArray()
         ->and(config('filament-nested-set-table.indent_size'))->toBe(24)
         ->and(config('filament-nested-set-table.drag_enabled'))->toBeTrue()
-        ->and(config('filament-nested-set-table.max_depth'))->toBe(0)
+        ->and(config('filament-nested-set-table.max_depth'))->toBeNull()
         ->and(config('filament-nested-set-table.remember_expanded_state'))->toBeTrue()
         ->and(config('filament-nested-set-table.default_expanded'))->toBeFalse()
         ->and(config('filament-nested-set-table.undo_duration'))->toBe(10)

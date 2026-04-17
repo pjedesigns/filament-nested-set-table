@@ -25,7 +25,7 @@ trait HasTree
 
     public ?array $lastMove = null;
 
-    protected static int $maxDepth = 0;
+    protected static ?int $maxDepth = null;
 
     protected static bool $rememberExpandedState = true;
 
@@ -39,7 +39,7 @@ trait HasTree
 
     public function bootHasTree(): void
     {
-        static::$maxDepth = config('filament-nested-set-table.max_depth', 0);
+        static::$maxDepth = config('filament-nested-set-table.max_depth');
         static::$rememberExpandedState = config('filament-nested-set-table.remember_expanded_state', true);
         static::$defaultExpanded = config('filament-nested-set-table.default_expanded', false);
 
@@ -98,18 +98,17 @@ trait HasTree
     }
 
     /**
-     * Override the table query to apply tree modifications.
-     * This method is automatically called by Filament's ListRecords.
+     * Hook into Filament's table construction to apply tree query modifications
+     * via the modern modifyQueryUsing() API (replacing the deprecated
+     * getTableQuery() override path).
      */
-    protected function getTableQuery(): ?Builder
+    protected function makeTable(): Table
     {
-        $query = parent::getTableQuery();
-
-        if ($query && $this->treeMode) {
-            return $this->applyTreeQueryModifications($query);
-        }
-
-        return $query;
+        return parent::makeTable()->modifyQueryUsing(
+            fn (Builder $query): Builder => $this->treeMode
+                ? $this->applyTreeQueryModifications($query)
+                : $query,
+        );
     }
 
     /**
@@ -497,9 +496,9 @@ trait HasTree
             return;
         }
 
-        // Max depth check
+        // Max depth check (null = unlimited; 0 = root only, no nesting)
         $maxDepth = $this->getMaxDepth();
-        if ($maxDepth > 0) {
+        if ($maxDepth !== null) {
             $targetDepth = $makeChild
                 ? (($targetNode->depth ?? 0) + 1)
                 : ($targetNode->depth ?? 0);
@@ -894,21 +893,25 @@ trait HasTree
      * Get the maximum allowed tree depth.
      * Override this method in your ListRecords class to set a custom max depth.
      *
+     * - null   = unlimited nesting
+     * -    0   = root only (nesting disabled)
+     * -    N   = allow up to N levels below root
+     *
      * Example:
-     * public function getMaxDepth(): int
+     * public function getMaxDepth(): ?int
      * {
-     *     return 5; // Limit to 5 levels
+     *     return 5; // Limit to 5 levels below root
      * }
      */
-    public function getMaxDepth(): int
+    public function getMaxDepth(): ?int
     {
         return static::$maxDepth;
     }
 
     /**
-     * Set the maximum allowed tree depth.
+     * Set the maximum allowed tree depth. Pass null for unlimited.
      */
-    public static function maxDepth(int $depth): void
+    public static function maxDepth(?int $depth): void
     {
         static::$maxDepth = $depth;
     }

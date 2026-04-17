@@ -65,11 +65,15 @@ abstract class OrderPage extends Page
     }
 
     /**
-     * Get the maximum tree depth (0 = unlimited).
+     * Get the maximum tree depth.
+     *
+     * - null = unlimited nesting
+     * -    0 = root only (nesting disabled)
+     * -    N = allow up to N levels below root
      */
-    public function getMaxDepth(): int
+    public function getMaxDepth(): ?int
     {
-        return config('filament-nested-set-table.max_depth', 0);
+        return config('filament-nested-set-table.max_depth');
     }
 
     /**
@@ -284,9 +288,9 @@ abstract class OrderPage extends Page
             }
         }
 
-        // Max depth check
+        // Max depth check (null = unlimited; 0 = root only, no nesting)
         $maxDepth = $this->getMaxDepth();
-        if ($maxDepth > 0) {
+        if ($maxDepth !== null) {
             $targetDepth = $makeChild
                 ? (($targetNode->depth ?? 0) + 1)
                 : ($targetNode->depth ?? 0);

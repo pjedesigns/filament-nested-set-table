@@ -54,11 +54,14 @@ trait InteractsWithTree
 
     /**
      * Get the maximum allowed depth for this tree.
-     * Return 0 for unlimited depth.
+     *
+     * - null = unlimited nesting
+     * -    0 = root only (nesting disabled)
+     * -    N = allow up to N levels below root
      */
-    public function getMaxTreeDepth(): int
+    public function getMaxTreeDepth(): ?int
     {
-        return config('filament-nested-set-table.max_depth', 0);
+        return config('filament-nested-set-table.max_depth');
     }
 
     /**

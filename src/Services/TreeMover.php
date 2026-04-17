@@ -13,12 +13,12 @@ class TreeMover
         Model $node,
         ?int $newParentId,
         int $newPosition,
-        int $maxDepth = 0
+        ?int $maxDepth = null
     ): MoveResult {
         $wasAutoAdjusted = false;
 
-        // Check max depth and auto-adjust if needed
-        if ($maxDepth > 0 && $newParentId !== null) {
+        // Check max depth and auto-adjust if needed (null = unlimited)
+        if ($maxDepth !== null && $newParentId !== null) {
             $newParent = $node->newQuery()->withDepth()->find($newParentId);
 
             if (! $newParent) {
