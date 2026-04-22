@@ -2,6 +2,10 @@
 
 All notable changes to `filament-nested-set-table` will be documented in this file.
 
+## v1.1.3 - 2026-04-22
+
+### Added Support for Kalnoy/NestedSet v7
+
 ## v1.1.2 - 2026-04-18
 
 ### Fixed Issue with MaxDepth Defaulting to Infinite
