@@ -18,7 +18,7 @@
     $isExpanded = $livewire && method_exists($livewire, 'isNodeExpanded') ? $livewire->isNodeExpanded($nodeId) : false;
     $resource = $livewire && method_exists(get_class($livewire), 'getResource') ? $livewire::getResource() : null;
 
-    $viewUrl = $resource
+    $viewUrl = $resource && $resource::hasPage($record)
         ? $resource::getUrl('view', ['record' => $record])
         : null;
 
