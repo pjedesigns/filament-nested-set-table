@@ -18,7 +18,7 @@
     $isExpanded = $livewire && method_exists($livewire, 'isNodeExpanded') ? $livewire->isNodeExpanded($nodeId) : false;
     $resource = $livewire && method_exists(get_class($livewire), 'getResource') ? $livewire::getResource() : null;
 
-    $viewUrl = $resource
+    $viewUrl = $resource && $resource::hasPage($record)
         ? $resource::getUrl('view', ['record' => $record])
         : null;
 
@@ -308,7 +308,7 @@
     {{-- Drag Handle / Loading Spinner --}}
     <span
         class="tree-drag-handle flex h-6 w-6 shrink-0 cursor-grab items-center justify-center rounded text-gray-400 hover:bg-gray-50 hover:text-gray-500 dark:text-gray-500 dark:hover:bg-white/5 dark:hover:text-gray-400"
-        title="{{ __('Drag to reorder') }}"
+        title="{{ __('filament-nested-set-table::messages.drag_to_reorder') }}"
         draggable="true"
         x-on:dragstart="startDrag($event)"
         x-on:dragend="endDrag($event)"
@@ -357,7 +357,7 @@
             wire:click.stop="toggleNode({{ $nodeId }})"
             wire:key="toggle-btn-{{ $nodeId }}"
             class="tree-expand-toggle flex h-6 w-6 shrink-0 cursor-pointer items-center justify-center rounded text-gray-400 hover:bg-gray-50 hover:text-gray-500 dark:text-gray-500 dark:hover:bg-white/5 dark:hover:text-gray-400"
-            title="{{ $isExpanded ? __('Collapse') : __('Expand') }}"
+            title="{{ $isExpanded ? __('filament-nested-set-table::messages.collapse') : __('filament-nested-set-table::messages.expand') }}"
         >
             <span style="display: inline-block; transition: transform 150ms; {{ $arrowStyle }}">
                 <x-filament::icon
