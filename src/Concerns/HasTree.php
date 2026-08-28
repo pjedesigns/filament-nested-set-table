@@ -832,11 +832,16 @@ trait HasTree
                     return 0;
                 })->values();
 
-                // Reposition nodes in the sorted order
+                // Reposition nodes in the sorted order. Each node's lft/rgt must be
+                // refreshed first: earlier moves shift bounds in the database, and
+                // saving a node with stale in-memory bounds corrupts the tree when
+                // the move itself is a no-op.
                 foreach ($sorted as $index => $node) {
                     if ($index === 0) {
                         continue;
                     }
+
+                    $node->refreshNode();
 
                     $previousNode = $sorted->get($index - 1);
                     $node->insertAfterNode($previousNode);
