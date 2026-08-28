@@ -2,6 +2,11 @@
 
 All notable changes to `filament-nested-set-table` will be documented in this file.
 
+## v1.1.5 - 2026-08-28
+
+### Fixed
+- `saveAlphabetically` corrupting the tree when sorting large lists — nodes already in the correct position were saved with stale in-memory `_lft`/`_rgt` bounds, leaving the list only partially sorted. Node bounds are now refreshed before each reposition in both `OrderPage` and `HasTree`.
+
 ## v1.1.4 - 2026-08-28
 
 ### Added
