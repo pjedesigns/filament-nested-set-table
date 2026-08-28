@@ -122,6 +122,24 @@ abstract class OrderPage extends Page
         return $this->nodes;
     }
 
+    public function shouldFixTreeQuietly(): bool
+    {
+        return config('filament-nested-set-table.fix_tree_quietly', true);
+    }
+
+    protected function runFixTree(): void
+    {
+        $model = $this->getModel();
+
+        if (! $this->shouldFixTreeQuietly()) {
+            $model::fixTree();
+
+            return;
+        }
+
+        $model::withoutEvents(fn () => $model::fixTree());
+    }
+
     /**
      * Get all nodes for the tree, fully loaded.
      * Returns a flat array with all nodes for Alpine.js to render recursively.
@@ -492,7 +510,7 @@ abstract class OrderPage extends Page
         $model = $this->getModel();
 
         try {
-            $model::fixTree();
+            $this->runFixTree();
 
             event(new TreeFixed($model, 0));
 
@@ -608,7 +626,7 @@ abstract class OrderPage extends Page
             }
 
             // Fix tree to ensure lft/rgt values are clean
-            $model::fixTree();
+            $this->runFixTree();
 
             $this->notifySuccess(__('filament-nested-set-table::messages.alphabetical_success'));
             $this->dispatch('tree-updated');

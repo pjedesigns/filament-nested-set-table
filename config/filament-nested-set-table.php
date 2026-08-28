@@ -80,6 +80,19 @@ return [
 
     /*
     |--------------------------------------------------------------------------
+    | Fix Tree Quietly
+    |--------------------------------------------------------------------------
+    |
+    | When enabled, the OrderPage runs fixTree() inside withoutEvents(), so
+    | model events (and observers, e.g. cache invalidation or activity logs)
+    | are not fired for every node touched during a tree repair. Disable to
+    | fire model events as normal.
+    |
+    */
+    'fix_tree_quietly' => true,
+
+    /*
+    |--------------------------------------------------------------------------
     | Touch Delay (ms)
     |--------------------------------------------------------------------------
     |

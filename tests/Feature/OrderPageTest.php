@@ -938,3 +938,96 @@ it('leaf nodes report has_children as false', function () {
     expect($grandchildNode['has_children'])->toBeFalse()
         ->and($grandchildNode['children_count'])->toBe(0);
 });
+
+// ============================================
+// Fix Tree Quietly Tests
+// ============================================
+
+// Real OrderPage subclass to exercise runFixTree() / shouldFixTreeQuietly()
+class FixTreeOrderPage extends OrderPage
+{
+    protected static string $resource = OrderTestItemResource::class;
+
+    public function exposedRunFixTree(): void
+    {
+        $this->runFixTree();
+    }
+}
+
+it('shouldFixTreeQuietly returns true by default', function () {
+    $page = new FixTreeOrderPage;
+
+    expect($page->shouldFixTreeQuietly())->toBeTrue();
+});
+
+it('shouldFixTreeQuietly reads the config value', function () {
+    config()->set('filament-nested-set-table.fix_tree_quietly', false);
+
+    $page = new FixTreeOrderPage;
+
+    expect($page->shouldFixTreeQuietly())->toBeFalse();
+});
+
+it('runFixTree repairs the tree without firing model events when quiet', function () {
+    $tree = createTestTree();
+
+    // Corrupt the tree without firing events
+    OrderTestItem::query()
+        ->whereKey($tree['child1']->id)
+        ->update(['_lft' => 999, '_rgt' => 1000]);
+
+    $eventCount = 0;
+    OrderTestItem::updated(function () use (&$eventCount) {
+        $eventCount++;
+    });
+    OrderTestItem::saved(function () use (&$eventCount) {
+        $eventCount++;
+    });
+
+    $page = new FixTreeOrderPage;
+    $page->exposedRunFixTree();
+
+    expect($eventCount)->toBe(0)
+        ->and(OrderTestItem::isBroken())->toBeFalse();
+});
+
+it('runFixTree fires model events when quiet mode is disabled', function () {
+    config()->set('filament-nested-set-table.fix_tree_quietly', false);
+
+    $tree = createTestTree();
+
+    OrderTestItem::query()
+        ->whereKey($tree['child1']->id)
+        ->update(['_lft' => 999, '_rgt' => 1000]);
+
+    $eventCount = 0;
+    OrderTestItem::saved(function () use (&$eventCount) {
+        $eventCount++;
+    });
+
+    $page = new FixTreeOrderPage;
+    $page->exposedRunFixTree();
+
+    expect($eventCount)->toBeGreaterThan(0)
+        ->and(OrderTestItem::isBroken())->toBeFalse();
+});
+
+it('runFixTree can be overridden in a child page', function () {
+    $tree = createTestTree();
+
+    $page = new class extends FixTreeOrderPage
+    {
+        public bool $customRan = false;
+
+        protected function runFixTree(): void
+        {
+            $this->customRan = true;
+
+            parent::runFixTree();
+        }
+    };
+
+    $page->exposedRunFixTree();
+
+    expect($page->customRan)->toBeTrue();
+});

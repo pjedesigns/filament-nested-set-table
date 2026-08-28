@@ -300,6 +300,50 @@ protected function getHeaderActions(): array
 }
 ```
 
+### Customizing Fix Tree Behavior
+
+The OrderPage repairs the tree's `_lft`/`_rgt` values in two places: the **Fix Tree** header action and the **Save Alphabetically** action. Both go through the overridable `runFixTree()` method.
+
+By default, the repair runs inside `withoutEvents()`, so model events (and any observers — activity logging, cache invalidation, search indexing, etc.) are not fired for every node touched during the repair. You can control this in three ways:
+
+**1. Globally via config** — set `fix_tree_quietly` to `false` in `config/filament-nested-set-table.php` to fire model events as normal:
+
+```php
+'fix_tree_quietly' => false,
+```
+
+**2. Per page via `shouldFixTreeQuietly()`** — override on your Order Page:
+
+```php
+class OrderCategories extends OrderPage
+{
+    protected static string $resource = CategoryResource::class;
+
+    public function shouldFixTreeQuietly(): bool
+    {
+        return false; // fire model events during tree repair on this page
+    }
+}
+```
+
+**3. Full control via `runFixTree()`** — override to completely customize how the repair runs, e.g. to add scoping, logging, or wrap it in a transaction:
+
+```php
+use Illuminate\Support\Facades\DB;
+
+class OrderCategories extends OrderPage
+{
+    protected static string $resource = CategoryResource::class;
+
+    protected function runFixTree(): void
+    {
+        $model = $this->getModel();
+
+        DB::transaction(fn () => $model::withoutEvents(fn () => $model::fixTree()));
+    }
+}
+```
+
 ---
 
 ## Authorization
@@ -353,6 +397,9 @@ return [
 
     // Enable broadcasting for real-time updates
     'broadcast_enabled' => false,
+
+    // Run the OrderPage Fix Tree repair without firing model events
+    'fix_tree_quietly' => true,
 
     // Touch delay to prevent accidental drags (ms)
     'touch_delay' => 150,

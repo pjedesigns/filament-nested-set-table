@@ -2,6 +2,13 @@
 
 All notable changes to `filament-nested-set-table` will be documented in this file.
 
+## v1.1.4 - 2026-08-28
+
+### Added
+- `runFixTree()` overridable method on `OrderPage` — both the Fix Tree action and Save Alphabetically now route tree repairs through this method, so you can fully customize how `fixTree()` runs (transactions, scoping, logging, etc.)
+- `shouldFixTreeQuietly()` overridable method on `OrderPage` to control per page whether tree repairs fire model events
+- `fix_tree_quietly` config option (default: `true`) — when enabled, tree repairs run inside `withoutEvents()` so observers are not fired for every node touched
+
 ## v1.1.3 - 2026-04-22
 
 ### Added Support for Kalnoy/NestedSet v7
